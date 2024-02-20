@@ -21,12 +21,13 @@ import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";
 import { BotAvatar } from "@/components/bot-avatar";
 
-// Defining the main component for the conversation page
 const ConversationPage = () => {
     const router = useRouter();
-    const [messages, setMessages] = useState<CreateChatCompletionRequestMessage[]>([]);
-
-    // Setting up form handling with react-hook-form and Zod for schema validation
+        const [messages, setMessages] = useState<CreateChatCompletionRequestMessage[]>([]);
+        
+    const [file, setFile] = useState<File | null>(null); // Initialwert zu null geändert
+    const [uploadError, setUploadError] = useState(""); // Initialwert zu null geändert
+    const [fileName, setFileName] = useState(""); // Initialwert zu null geändert
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -34,135 +35,121 @@ const ConversationPage = () => {
         }
     });
 
-    // State to manage loading status
     const isLoading = form.formState.isSubmitting;
 
-    // Function to handle form submission
-    const onSubmit = async (values) =>  {
+    const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
             const formData = new FormData();
             formData.append("prompt", values.prompt);
 
-            if (values.attachment && values.attachment.length > 0) {
-                formData.append("attachment", values.attachment[0]);
+            if (file) {
+                formData.append("attachment", file);
+                setFileName(file.name);
             }
 
             const userMessage: CreateChatCompletionRequestMessage = {
                 role: "user",
                 content: values.prompt,
             };
-            const newMessages = [...messages, userMessage];
+            setMessages((current) => [...current, userMessage]);
 
-            // Sending the form data to the server and updating the state with the response
             const response = await axios.post("/api/conversation", formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
             });
 
-            setMessages((current) => [...current, userMessage, response.data]);
+            setMessages((current) => [...current, response.data]);
             form.reset();
-
+            setFile(null); // Dateiauswahl zurücksetzen
+            setFileName(""); // Dateinamen zurücksetzen
+            setUploadError(""); // Dateiauswahl zurücksetzen
         } catch (error) {
-            console.log(error);
+            console.error(error);
+            setUploadError("Fehler beim Hochladen der Datei.");
         } finally {
-            router.refresh();
+            if (typeof window !== "undefined") {
+                router.replace(router.asPath);
+            }
         }
     };
 
-    // Rendering the conversation page UI
     return (
         <div>
             <Heading 
-            title="Conversation"
-            description="Our most advanced conversation model."
+            title="Gespräch"
+            description="Unser fortschrittlichstes Konversationsmodell."
             icon={MessageSquare}
             iconColor="text-violet-500"
             bgColor="bg-violet-500/10"
             />
             <div className="px-4 lg:px-8">
-            <div>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} encType="multipart/form-data"
-                    className="
-                    rounded-lg
-                    border
-                    w-full
-                    p-4
-                    px-3
-                    md:px-6
-                    focus-within:shadow-sm
-                    grid
-                    grid-cols-12
-                    gap-2
-                    "
+                    className="rounded-lg border w-full p-4 px-3 md:px-6 focus-within:shadow-sm grid grid-cols-12 gap-2"
                     >
                         <FormField 
                         name="prompt"
-                        render={({ field }) => ( 
+                        render={({ field }) => (
                             <FormItem className="col-span-12 lg:col-span-10">
-                                    <FormControl className="m-0 p-0">
-                                        <Input 
-                                        className="border-0 outline-none
-                                        focus-visible:ring-0
-                                        focus-visible:ring-transparent"
-                                        disabled={isLoading}
-                                        placeholder="How do I calculate the radius of a circle?"
-                                        {...field}
-                                        />
-                                    </FormControl>
+                                <FormControl className="m-0 p-0">
+                                    <Input 
+                                    className="border-0 outline-none focus-visible:ring-0 focus-visible:ring-transparent"
+                                    disabled={isLoading}
+                                    placeholder="Wie berechne ich den Radius eines Kreises?"
+                                    {...field}
+                                    />
+                                </FormControl>
                             </FormItem>
                         )}
                         />
                         <FormField 
                         name="attachment"
-                        render={({ field }) => ( 
+                        render={({ field }) => (
                             <FormItem className="col-span-12 lg:col-span-10">
-                                    <FormControl className="m-0 p-0">
-                                        <Input type="file"
-                                        className="border-0 outline-none
-                                        focus-visible:ring-0
-                                        focus-visible:ring-transparent"
+                                <FormControl className="m-0 p-0">
+                                    <Input 
+                                        type="file" 
+                                        className="border-0 outline-none focus-visible:ring-0 focus-visible:ring-transparent"
                                         disabled={isLoading}
+                                        onChange={(e) => setFile(e.target.files?.[0] || null)}
                                         {...field}
-                                        />
-                                    </FormControl>
+                                    />
+                                </FormControl>
                             </FormItem>
                         )}
                         />
                         <Button className="col-span-12 lg:col-span-2 w-full" disabled={isLoading}>
-                            Generate
+                            Generieren
                         </Button>
                     </form>
                 </Form>
-            </div>
-                            <div className="space-y-4 mt-4">
-                            {isLoading && (
-                                <div className="p-8 rounded-lg w-full flex items-center justify-center bg-muted">
-                                    <Loader />
-                                </div>
+                <div className="space-y-4 mt-4">
+                    {isLoading && (
+                        <div className="p-8 rounded-lg w-full flex items-center justify-center bg-muted">
+                            <Loader />
+                        </div>
+                    )}
+                    {messages.length === 0 && !isLoading && (
+                        <Empty label="Kein Gespräch begonnen."/>
+                    )}
+                    <div className="flex flex-col-reverse gap-y-4">
+                        {messages.map((message, index) => (
+                            <div 
+                            key={index}
+                            className={cn(
+                                "p-8 w-full flex items-start gap-x-8 rounded-lg",
+                                message.role === "user" ? "bg-white border border-black/10" : "bg-muted"
                             )}
-                            {messages.length === 0 && !isLoading && (
-                                <Empty label="No conversation started."/>
-                            )}
-                                <div className="flex flex-col-reverse gap-y-4">
-                                    {messages.map((message) => (
-                                        <div 
-                                        key={message.content}
-                                        className={cn(
-                                            "p-8 w-full flex items-start gap-x-8 rounded-lg",
-                                            message.role === "user" ? "bg-white border border-black/10" : "bg-muted"
-                                        )}
-                                        >
-                                            {message.role === "user" ? <UserAvatar /> :
-                                            <BotAvatar /> }    
-                                            <p className="text-sm">
-                                                {message.content}
-                                            </p>
-                                    </div>
-                                    ))}
-                                </div>
+                            >
+                                {message.role === "user" ? <UserAvatar /> : <BotAvatar />}    
+                                <p className="text-sm">
+                                    {message.content}
+                                </p>
                             </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>
     );
