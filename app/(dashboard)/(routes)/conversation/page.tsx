@@ -113,7 +113,6 @@ const ConversationPage = () => {
                                         className="border-0 outline-none focus-visible:ring-0 focus-visible:ring-transparent"
                                         disabled={isLoading}
                                         onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                        {...field}
                                     />
                                 </FormControl>
                             </FormItem>

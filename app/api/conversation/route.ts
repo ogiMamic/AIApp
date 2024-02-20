@@ -1,23 +1,21 @@
 import fetch from 'node-fetch';
 import { NextApiRequest, NextApiResponse } from 'next';
+import { IncomingForm } from 'formidable';
 
-export async function GET(req: NextApiRequest, res: NextApiResponse) {
-  try {
-    const response = await fetch('https://api.openai.com/v1/files', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-      }
-    });
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+export async function POST(req: NextApiRequest, res: NextApiResponse) {
+  const form = new IncomingForm();
+  form.parse(req, (err, fields, files) => {
+    if (err) {
+        res.status(500).json({ message: 'Fehler beim Verarbeiten der Datei.' });
+        return;
     }
-
-    const data = await response.json();
-    res.status(200).json(data);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Es ist ein Serverfehler aufgetreten.' });
-  }
+    // Verarbeiten Sie hier Ihre Felder und Dateien...
+    res.status(200).json({ message: 'Datei erfolgreich hochgeladen.' });
+});
 }
