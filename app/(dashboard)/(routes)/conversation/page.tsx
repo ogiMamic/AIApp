@@ -14,12 +14,14 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { MessageSquare } from "lucide-react";
 import { Heading } from "@/components/headling";
-import { CreateChatCompletionRequestMessage } from "openai/resources/chat";
+import OpenAI from "openai";
 import { Empty } from "@/components/empty";
 import { Loader } from "@/components/loader";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";
 import { BotAvatar } from "@/components/bot-avatar";
+import fs from "fs";
+
 
 const ConversationPage = () => {
     const router = useRouter();
@@ -37,42 +39,34 @@ const ConversationPage = () => {
 
     const isLoading = form.formState.isSubmitting;
 
-    const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const onSubmit = async (values) => {
         try {
             const formData = new FormData();
             formData.append("prompt", values.prompt);
-
             if (file) {
-                formData.append("attachment", file);
-                setFileName(file.name);
+              formData.append("attachment", file);
             }
 
-            const userMessage: CreateChatCompletionRequestMessage = {
-                role: "user",
-                content: values.prompt,
-            };
-            setMessages((current) => [...current, userMessage]);
+            setUploadError(""); // Dateiauswahl zurücksetzen
 
             const response = await axios.post("/api/conversation", formData, {
                 headers: {
-                    'Content-Type': 'multipart/form-data'
+                  'Content-Type': 'multipart/form-data'
                 }
-            });
+              });
 
-            setMessages((current) => [...current, response.data]);
-            form.reset();
-            setFile(null); // Dateiauswahl zurücksetzen
-            setFileName(""); // Dateinamen zurücksetzen
-            setUploadError(""); // Dateiauswahl zurücksetzen
-        } catch (error) {
-            console.error(error);
-            setUploadError("Fehler beim Hochladen der Datei.");
-        } finally {
-            if (typeof window !== "undefined") {
-                router.replace(router.asPath);
-            }
-        }
-    };
+              setMessages(current => [...current, { role: 'user', content: values.prompt }, response.data]);
+
+           // Reset forme i stanja nakon uspješnog slanja
+    form.reset();
+    setFile(null);
+    setFileName("");
+    setUploadError("");
+  } catch (error) {
+    console.error(error);
+    setUploadError("Fehler beim Hochladen der Datei.");
+  }
+};
 
     return (
         <div>
@@ -113,7 +107,7 @@ const ConversationPage = () => {
                                         className="border-0 outline-none focus-visible:ring-0 focus-visible:ring-transparent"
                                         disabled={isLoading}
                                         onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                    />
+                                        />
                                 </FormControl>
                             </FormItem>
                         )}

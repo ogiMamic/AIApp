@@ -13,7 +13,8 @@ import {
     MessageSquare,
     Music,
     Settings,
-    VideoIcon
+    VideoIcon,
+    UserPlus 
  }    from "lucide-react";
 
 const montserrat = Montserrat({ 
@@ -63,9 +64,13 @@ const routes = [
         icon: Settings,
         href: "/settings",
     },
+    {
+        label: "New Agent",
+        icon: UserPlus, // Zamijenite s odgovarajućom ikonom
+        href: "/new-agent", // Pretpostavljena putanja, prilagodite prema potrebi
+        color: "text-blue-700", // Prilagodite boju ikone
+    },
 ];
-
-// Prethodni importi ostaju isti...
 
 const Sidebar = () => {
     const pathname = usePathname(); // Pretpostavljam da je ovo validan hook
