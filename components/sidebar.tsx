@@ -67,7 +67,7 @@ const routes = [
     {
         label: "New Agent",
         icon: UserPlus, // Zamijenite s odgovarajućom ikonom
-        href: "/new-agent", // Pretpostavljena putanja, prilagodite prema potrebi
+        href: "/agent", // Pretpostavljena putanja, prilagodite prema potrebi
         color: "text-blue-700", // Prilagodite boju ikone
     },
 ];

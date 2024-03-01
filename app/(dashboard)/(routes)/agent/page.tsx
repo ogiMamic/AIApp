@@ -1,7 +1,7 @@
 "use client";
 import axios from "axios";
 import * as z from "zod";
-import { Code } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { Heading } from "@/components/headling";
 import { useForm } from "react-hook-form";
 import { formSchema } from "./constants";
@@ -11,66 +11,82 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { CreateChatCompletionRequestMessage } from "openai/resources/chat";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Empty } from "@/components/empty";
 import { Loader } from "@/components/loader";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";
 import { BotAvatar } from "@/components/bot-avatar";
+import { Textarea } from "@/components/ui/textarea";
+import ListAgents from "@/components/agents/list-agents";
+import { useAgentsStore } from "@/store/agentsStore/useAgentsStore";
 
 const AgentPage = () => {
-    const router = useRouter();
-    const [messages, setMessages] = useState<CreateChatCompletionRequestMessage[]>
-    ([]);
+  const router = useRouter();
 
-    const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            prompt: ""
-        }
-    });
+  const { selected, updateAgent } = useAgentsStore();
 
-    const isLoading = form.formState.isSubmitting;
+  const [messages, setMessages] = useState<
+    CreateChatCompletionRequestMessage[]
+  >([]);
 
-    const onSubmit = async (values: z.infer<typeof formSchema>) =>  {
-        try {
-            const userMessage: CreateChatCompletionRequestMessage = {
-                role: "user",
-                content: values.prompt,
-            };
-            const newMessages = [...messages, userMessage];
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      prompt: "",
+    },
+  });
 
-            const response = await axios.post("/api/code", {
-                messages: newMessages,
-            });
+  const isLoading = form.formState.isSubmitting;
 
-            setMessages((current) => [...current, userMessage, response.data]);
-            form.reset();
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      const userMessage: CreateChatCompletionRequestMessage = {
+        role: "user",
+        content: values.prompt,
+      };
+      const newMessages = [...messages, userMessage];
 
-        } catch (error: any) {
-            // TODO: Open Pro Modal
-            console.log(error);
-        }   finally {
-            router.refresh();
-        }
-    };
+      const response = await axios.post("/api/code", {
+        messages: newMessages,
+      });
 
+      setMessages((current) => [...current, userMessage, response.data]);
+      form.reset();
+    } catch (error: any) {
+      // TODO: Open Pro Modal
+      console.log(error);
+    } finally {
+      router.refresh();
+    }
+  };
 
+  useEffect(() => {
+    if (selected) {
+      console.log("selected", selected);
+    }
+  }, [selected]);
 
-    return (
-        <div>
-            <Heading 
-            title="Code Generation"
-            description="Generate code using descriptive text."
-            icon={Code}
-            iconColor="text-green-700"
-            bgColor="bg-green-700/10"
+  return (
+    <>
+      <div className="mt-0 w-full grid grid-cols-12 divide-gray-200 flex-col divide-x divide-y">
+        <ListAgents />
+        <div className="pt-12 flex-col lg:col-span-9 bg-gray-0 p-2 rounded-lg">
+          <div>
+            <Heading
+              title="Create Agent"
+              description="Create Agent and upload files for Agent´s knowladge."
+              icon={UserPlus}
+              iconColor="text-blue-700"
+              bgColor="bg-blue-700/10"
             />
             <div className="px-4 lg:px-8">
-            <div>
+              <h3>{selected?.name}</h3>
+              <div>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)}
+                  <form
+                    onSubmit={form.handleSubmit(onSubmit)}
                     className="
                     rounded-lg
                     border
@@ -83,73 +99,315 @@ const AgentPage = () => {
                     grid-cols-12
                     gap-2
                     "
-                    >
-                        <FormField 
-                        name="prompt"
-                        render={({ field }) => ( 
-                            <FormItem className="col-span-12 lg:col-span-10">
-                                    <FormControl className="m-0 p-0">
-                                        <Input 
-                                        className="border-0 outline-none
+                  >
+                    <FormField
+                      name="prompt"
+                      render={({ field }) => (
+                        <FormItem className="col-span-12 lg:col-span-10">
+                          <FormControl className="m-0 p-0">
+                            <Input
+                              defaultValue={selected?.name}
+                              className="border-0 outline-none
                                         focus-visible:ring-0
                                         focus-visible:ring-transparent"
-                                        disabled={isLoading}
-                                        placeholder="Simple toggle button using react hooks."
-                                        {...field}
-                                        />
-                                    </FormControl>
-                            </FormItem>
-                        )}
-                        />
-                        <Button className="col-span-12 lg:col-span-2 w-full" disabled={isLoading}>
-                            Generate
-                        </Button>
-                    </form>
+                              disabled={isLoading}
+                              placeholder="Simple toggle button using react hooks."
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      className="col-span-12 lg:col-span-2 w-full"
+                      disabled={isLoading}
+                    >
+                      Generate
+                    </Button>
+                  </form>
                 </Form>
+              </div>
+              <div className="mt-8 w-full grid grid-cols-12 divide-gray-200 gap-16 flex-col">
+                <div className="mt-4 flex-col lg:col-span-6">
+                  <div className="flex-col ">
+                    <label
+                      htmlFor="agentDescription"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Name
+                    </label>
+                    <Input
+                      id="agentDescription"
+                      name="description"
+                      className="mt-1 w-full"
+                      placeholder="Wie soll sich dieser Agent nennen?"
+                      // Stellen Sie sicher, dass Sie value und onChange hinzufügen, um den State zu verwalten
+                      // value={agentInfo.description}
+                      // onChange={handleAgentInfoChange}
+                    />
+                    <label
+                      htmlFor="agentDescription"
+                      className="mt-8 block text-sm font-medium text-gray-700"
+                    >
+                      Beschreibung
+                    </label>
+                    <Input
+                      id="agentDescription"
+                      name="description"
+                      className="mt-1 w-full"
+                      placeholder="Füge eine kurze Beschreibung hinzu, was dieser Agent macht."
+                      // Stellen Sie sicher, dass Sie value und onChange hinzufügen, um den State zu verwalten
+                      // value={agentInfo.description}
+                      // onChange={handleAgentInfoChange}
+                    />
+                  </div>
+                  <div className="mt-4 flex-col ">
+                    <label
+                      htmlFor="agentDescription"
+                      className="mt-8 block text-sm font-medium text-gray-700"
+                    >
+                      Anweisungen
+                    </label>
+                    <Textarea
+                      id="agentDescription"
+                      name="description"
+                      className="mt-1 w-full h-25 "
+                      placeholder="Was macht dieser Customer Agent? Wie verhält er sich? Was sollte er vermeiden zu tun?"
+                      // Stellen Sie sicher, dass Sie value und onChange hinzufügen, um den State zu verwalten
+                      // value={agentInfo.description}
+                      // onChange={handleAgentInfoChange}
+                    />
+                    <div className="mt-4 col-span-full">
+                      <label
+                        htmlFor="photo"
+                        className="block text-sm font-medium leading-6 text-gray-900"
+                      >
+                        Foto
+                      </label>
+                      <div className="mt-2 flex items-center gap-x-3">
+                        <svg
+                          className="h-12 w-12 text-gray-300"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                        <button
+                          type="button"
+                          className="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                        >
+                          Change
+                        </button>
+                      </div>
+                    </div>
+                    <label
+                      htmlFor="agentDescription"
+                      className="mt-8 block text-sm font-medium text-gray-700"
+                    >
+                      Vorschläge für Aufforderungen
+                    </label>
+                    <Input
+                      id="agentDescription"
+                      name="description"
+                      className="mt-1 w-full"
+                      placeholder="Welche Fragen würdest du dem Benutzer vorschlagen, an den Agent zu stellen?"
+                      // Stellen Sie sicher, dass Sie value und onChange hinzufügen, um den State zu verwalten
+                      // value={agentInfo.description}
+                      // onChange={handleAgentInfoChange}
+                    />
+                    <label
+                      htmlFor="wissenName"
+                      className="mt-8 block text-lg font-semibold text-gray-700"
+                    >
+                      Wissen
+                    </label>
+                    <label
+                      htmlFor="wissenDescription"
+                      className=" mt-1 mb-6 block text-sm font-medium text-gray-700"
+                    >
+                      Durch Hochladen von Dateien nutzt der Assistent diese
+                      Inhalte für bessere Antworten.
+                    </label>
+
+                    <ul
+                      role="list"
+                      className="mb-6 divide-y divide-gray-100 rounded-md border border-gray-200"
+                    >
+                      <li className="flex items-center justify-between py-4 pl-4 pr-5 text-sm leading-6">
+                        <div className="flex w-0 flex-1 items-center">
+                          <svg
+                            className="h-5 w-5 flex-shrink-0 text-gray-400"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                          <div className="ml-4 flex min-w-0 flex-1 gap-2">
+                            <span className="truncate font-medium">
+                              Bilanzen 2023.pdf
+                            </span>
+                            <span className="flex-shrink-0 text-gray-400">
+                              2.4mb
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4 flex-shrink-0">
+                          <a
+                            href="#"
+                            className="font-medium text-blue-600 hover:text-blue-500"
+                          >
+                            Herunterladen
+                          </a>
+                        </div>
+                      </li>
+                      <li className="flex items-center justify-between py-4 pl-4 pr-5 text-sm leading-6">
+                        <div className="flex w-0 flex-1 items-center">
+                          <svg
+                            className="h-5 w-5 flex-shrink-0 text-gray-400"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                          <div className="ml-4 flex min-w-0 flex-1 gap-2">
+                            <span className="truncate font-medium">
+                              Bilanzen 2022.pdf
+                            </span>
+                            <span className="flex-shrink-0 text-gray-400">
+                              4.5mb
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4 flex-shrink-0">
+                          <a
+                            href="#"
+                            className="font-medium text-blue-600 hover:text-blue-500"
+                          >
+                            Herunterladen
+                          </a>
+                        </div>
+                      </li>
+                    </ul>
+                    <div className="mb-8 lx afm aft avd">
+                      <button
+                        type="button"
+                        className="font-medium text-blue-600 hover:text-blue-500"
+                      >
+                        <span aria-hidden="true">+ </span>
+                        Füge eine weitere Datei hinzu
+                      </button>
+                    </div>
+                    <label
+                      htmlFor="agentDescription"
+                      className="mt-8 mb-2 block text-sm font-medium text-gray-700"
+                    >
+                      Aktionen
+                    </label>
+                    <button
+                      type="button"
+                      className="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                    >
+                      Neue Aktion erstellen
+                    </button>
+                    <div className="mt-6 mb-8 flex items-center justify-end gap-x-6">
+                      <button
+                        type="button"
+                        className="text-sm font-semibold leading-6 text-gray-900"
+                      >
+                        Abbrechen
+                      </button>
+                      <button
+                        type="submit"
+                        className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                      >
+                        Speichern
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 lg:col-span-6 bg-blue-50 p-6 rounded-xl">
+                  <label
+                    htmlFor="PreviewName"
+                    className="block text-lg font-semibold text-gray-700"
+                  >
+                    Vorschau
+                  </label>
+                  <label
+                    htmlFor="agentDescription"
+                    className="mb-8 block text-sm font-medium text-gray-700"
+                  >
+                    Diese Vorschau eignet sich gut zum Testen. Teste hier deinen
+                    Agent
+                  </label>
+                  {isLoading && (
+                    <div className="p-8 rounded-lg w-full flex items-center justify-center bg-muted">
+                      <Loader />
+                    </div>
+                  )}
+                  {messages.length === 0 && !isLoading && (
+                    <Empty label="No conversation started." />
+                  )}
+                  <div className="mt-1 flex flex-col-reverse gap-y-4">
+                    {messages.map((message) => (
+                      <div
+                        key={message.content}
+                        className={cn(
+                          "p-8 w-full flex items-start gap-x-8 rounded-lg",
+                          message.role === "user"
+                            ? "bg-white border border-black/10"
+                            : "bg-muted"
+                        )}
+                      >
+                        {message.role === "user" ? (
+                          <UserAvatar />
+                        ) : (
+                          <BotAvatar />
+                        )}
+                        <ReactMarkdown
+                          components={{
+                            pre: ({ node, ...props }) => (
+                              <div className="overflow-auto w-full my-2 bg-black/10 p-2 rounded-lg">
+                                <pre {...props} />
+                              </div>
+                            ),
+                            code: ({ node, ...props }) => (
+                              <code
+                                className="bg-black/10 rounded-lg p-1"
+                                {...props}
+                              />
+                            ),
+                          }}
+                          className="text-sm overflow-hidden leading-7"
+                        >
+                          {message.content || ""}
+                        </ReactMarkdown>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-                            <div className="space-y-4 mt-4">
-                            {isLoading && (
-                                <div className="p-8 rounded-lg w-full flex items-center justify-center bg-muted">
-                                    <Loader />
-                                </div>
-                            )}
-                            {messages.length === 0 && !isLoading && (
-                                <Empty label="No conversation started."/>
-                            )}
-                                <div className="flex flex-col-reverse gap-y-4">
-                                    {messages.map((message) => (
-                                        <div 
-                                        key={message.content}
-                                        className={cn(
-                                            "p-8 w-full flex items-start gap-x-8 rounded-lg",
-                                            message.role === "user" ? "bg-white border border-black/10" : "bg-muted"
-                                        )}
-                                        >
-                                            {message.role === "user" ? <UserAvatar /> :
-                                            <BotAvatar /> }    
-                                            <ReactMarkdown 
-                                                components={{
-                                                    pre: ({ node, ...props }) => (
-                                                        <div className="overflow-auto w-full my-2 bg-black/10 p-2 rounded-lg">
-                                                            <pre {...props} />
-                                                        </div>
-                                                    ),
-                                                    code: ({ node, ...props }) => (
-                                                        <code className="bg-black/10 rounded-lg p-1" 
-                                                        {...props} />
-                                                    )
-                                                }}
-                                                className="text-sm overflow-hidden leading-7"
-                                            >
-                                                {message.content || ""}
-                                            </ReactMarkdown>
-                                    </div>
-                                    ))}
-                                </div>
-                            </div>
-            </div>
+          </div>
         </div>
-    );
-}
+      </div>
+    </>
+  );
+};
 
 export default AgentPage;

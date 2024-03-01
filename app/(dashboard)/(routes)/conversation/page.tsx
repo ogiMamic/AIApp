@@ -1,7 +1,5 @@
-// Na vrhu datoteke dodajte 'use client' direktivu
 "use client";
 
-// Nastavite s uvozom vaših modula i biblioteka
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
@@ -25,43 +23,40 @@ import fs from "fs";
 
 const ConversationPage = () => {
     const router = useRouter();
-        const [messages, setMessages] = useState<CreateChatCompletionRequestMessage[]>([]);
-        
-    const [file, setFile] = useState<File | null>(null); // Initialwert zu null geändert
-    const [uploadError, setUploadError] = useState(""); // Initialwert zu null geändert
-    const [fileName, setFileName] = useState(""); // Initialwert zu null geändert
-    const form = useForm<z.infer<typeof formSchema>>({
+    const [file, setFile] = useState<File | null>(null);
+    const [uploadError, setUploadError] = useState("");
+    const [messages, setMessages] = useState([]);
+    const methods = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
-        defaultValues: {
-            prompt: ""
-        }
     });
 
-    const isLoading = form.formState.isSubmitting;
+    const { handleSubmit, reset, getValues } = methods;
+    const isLoading = methods.formState.isSubmitting;
 
-    const onSubmit = async (values) => {
-        try {
-            const formData = new FormData();
-            formData.append("prompt", values.prompt);
-            if (file) {
-              formData.append("attachment", file);
+   const onSubmit = async (data: { prompt: string | Blob; }, e: { preventDefault: () => void; }) => {
+    e.preventDefault();
+
+    const formData = new FormData();
+    formData.append("prompt", data.prompt);
+
+    if (file) {
+        formData.append("attachment", file);
+    }
+
+    try {
+        const response = await fetch("/api/conversation", {
+            method: "POST",
+            body: formData,
+        });
+
+              if (!response.ok) {
+                throw new Error("Fehler beim Hochladen der Datei.");
             }
 
-            setUploadError(""); // Dateiauswahl zurücksetzen
-
-            const response = await axios.post("/api/conversation", formData, {
-                headers: {
-                  'Content-Type': 'multipart/form-data'
-                }
-              });
-
-              setMessages(current => [...current, { role: 'user', content: values.prompt }, response.data]);
-
-           // Reset forme i stanja nakon uspješnog slanja
-    form.reset();
-    setFile(null);
-    setFileName("");
-    setUploadError("");
+              const responseData = await response.json();
+              reset();
+                setFile(null);
+           
   } catch (error) {
     console.error(error);
     setUploadError("Fehler beim Hochladen der Datei.");
@@ -78,8 +73,8 @@ const ConversationPage = () => {
             bgColor="bg-violet-500/10"
             />
             <div className="px-4 lg:px-8">
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} encType="multipart/form-data"
+                <Form {...methods}>
+                    <form onSubmit={handleSubmit(onSubmit)} encType="multipart/form-data"
                     className="rounded-lg border w-full p-4 px-3 md:px-6 focus-within:shadow-sm grid grid-cols-12 gap-2"
                     >
                         <FormField 
