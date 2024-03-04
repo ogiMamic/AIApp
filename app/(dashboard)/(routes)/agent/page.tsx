@@ -21,9 +21,15 @@ import { BotAvatar } from "@/components/bot-avatar";
 import { Textarea } from "@/components/ui/textarea";
 import ListAgents from "@/components/agents/list-agents";
 import { useAgentsStore } from "@/store/agentsStore/useAgentsStore";
+import AgentForm from "@/components/AgentForm";
+import { SUPPORTED_NATIVE_MODULES } from "next/dist/build/webpack/plugins/middleware-plugin";
+import { SheetDescription } from "@/components/ui/sheet";
 
 const AgentPage = () => {
   const router = useRouter();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [anweisungen, setAnweisungen] = useState("");
 
   const { selected, updateAgent } = useAgentsStore();
 
@@ -64,9 +70,22 @@ const AgentPage = () => {
 
   useEffect(() => {
     if (selected) {
-      console.log("selected", selected);
+      setName(selected.name);
+      setDescription(selected.description);
+      setAnweisungen(selected.anweisungen);
     }
   }, [selected]);
+
+  const handleSave = () => {
+    if (selected) {
+      updateAgent({
+        ...selected,
+        name,
+        description,
+        anweisungen,
+      });
+    }
+  };
 
   return (
     <>
@@ -82,13 +101,13 @@ const AgentPage = () => {
               bgColor="bg-blue-700/10"
             />
             <div className="px-4 lg:px-8">
-              <h3>{selected?.name}</h3>
+              <h5>{selected?.name}</h5>
               <div>
                 <Form {...form}>
                   <form
                     onSubmit={form.handleSubmit(onSubmit)}
                     className="
-                    rounded-lg
+                    mt-6 rounded-lg
                     border
                     w-full
                     p-4
@@ -137,8 +156,10 @@ const AgentPage = () => {
                       Name
                     </label>
                     <Input
-                      id="agentDescription"
-                      name="description"
+                      id="agentName"
+                      name="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                       className="mt-1 w-full"
                       placeholder="Wie soll sich dieser Agent nennen?"
                       // Stellen Sie sicher, dass Sie value und onChange hinzufügen, um den State zu verwalten
@@ -154,6 +175,8 @@ const AgentPage = () => {
                     <Input
                       id="agentDescription"
                       name="description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
                       className="mt-1 w-full"
                       placeholder="Füge eine kurze Beschreibung hinzu, was dieser Agent macht."
                       // Stellen Sie sicher, dass Sie value und onChange hinzufügen, um den State zu verwalten
@@ -169,8 +192,10 @@ const AgentPage = () => {
                       Anweisungen
                     </label>
                     <Textarea
-                      id="agentDescription"
-                      name="description"
+                      id="agentAnweisungen"
+                      name="anweisungen"
+                      value={anweisungen}
+                      onChange={(e) => setAnweisungen(e.target.value)}
                       className="mt-1 w-full h-25 "
                       placeholder="Was macht dieser Customer Agent? Wie verhält er sich? Was sollte er vermeiden zu tun?"
                       // Stellen Sie sicher, dass Sie value und onChange hinzufügen, um den State zu verwalten
@@ -332,6 +357,7 @@ const AgentPage = () => {
                         Abbrechen
                       </button>
                       <button
+                        onClick={handleSave}
                         type="submit"
                         className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                       >

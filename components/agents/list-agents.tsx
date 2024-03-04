@@ -17,7 +17,7 @@ const ListAgents = () => {
     const id = Math.random().toString(36).substr(2, 9);
     const agent: SynapseAgent = {
       id: id,
-      name: "Max Mustermann " + id,
+      name: "Agent´s Name " + id,
       description: "Vertriebsmitarbeiter",
     };
 
