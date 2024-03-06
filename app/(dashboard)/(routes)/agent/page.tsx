@@ -23,7 +23,14 @@ import ListAgents from "@/components/agents/list-agents";
 import { useAgentsStore } from "@/store/agentsStore/useAgentsStore";
 import AgentForm from "@/components/AgentForm";
 import { SUPPORTED_NATIVE_MODULES } from "next/dist/build/webpack/plugins/middleware-plugin";
-import { SheetDescription } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const AgentPage = () => {
   const router = useRouter();
@@ -230,7 +237,7 @@ const AgentPage = () => {
                         </button>
                       </div>
                     </div>
-                    <label
+                    {/* <label
                       htmlFor="agentDescription"
                       className="mt-8 block text-sm font-medium text-gray-700"
                     >
@@ -244,8 +251,8 @@ const AgentPage = () => {
                       // Stellen Sie sicher, dass Sie value und onChange hinzufügen, um den State zu verwalten
                       // value={agentInfo.description}
                       // onChange={handleAgentInfoChange}
-                    />
-                    <label
+                    /> */}
+                    {/*        <label
                       htmlFor="wissenName"
                       className="mt-8 block text-lg font-semibold text-gray-700"
                     >
@@ -336,7 +343,7 @@ const AgentPage = () => {
                         <span aria-hidden="true">+ </span>
                         Füge eine weitere Datei hinzu
                       </button>
-                    </div>
+                    </div> */}
                     <label
                       htmlFor="agentDescription"
                       className="mt-8 mb-2 block text-sm font-medium text-gray-700"
@@ -350,6 +357,12 @@ const AgentPage = () => {
                       Neue Aktion erstellen
                     </button>
                     <div className="mt-6 mb-8 flex items-center justify-end gap-x-6">
+                      <button
+                        type="button"
+                        className="text-sm font-semibold leading-6 text-gray-900"
+                      >
+                        Löschen
+                      </button>
                       <button
                         type="button"
                         className="text-sm font-semibold leading-6 text-gray-900"
