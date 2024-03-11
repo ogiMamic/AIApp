@@ -10,7 +10,7 @@ type Props = {
 const ListItem = ({ agent }: Props) => {
   const { selectAgent } = useAgentsStore();
   return (
-    <li className="flex justify-between items-center py-5 px-4 hover:bg-gray-100 p-8">
+    <li className="flex justify-start items-center py-5 px-4 hover:bg-gray-100 p-8">
       <Button
         variant="ghost"
         title="Show Details"
@@ -18,6 +18,7 @@ const ListItem = ({ agent }: Props) => {
           console.log("clicked on agent", agent?.name);
           selectAgent(agent);
         }}
+        className="inline-flex items-center justify-start whitespace-nowrap rounded-md w-full"
       >
         <div className="flex min-w-0 gap-x-4">
           <div className="min-w-0 flex-auto">
