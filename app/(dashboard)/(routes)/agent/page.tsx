@@ -6,6 +6,7 @@ import { Heading } from "@/components/headling";
 import { useForm } from "react-hook-form";
 import { formSchema } from "./constants";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,18 +22,72 @@ import { BotAvatar } from "@/components/bot-avatar";
 import { Textarea } from "@/components/ui/textarea";
 import ListAgents from "@/components/agents/list-agents";
 import { useAgentsStore } from "@/store/agentsStore/useAgentsStore";
+import { useCustomStore } from "@/store/customStore/useCustomStore";
 import AgentForm from "@/components/AgentForm";
 import { SUPPORTED_NATIVE_MODULES } from "next/dist/build/webpack/plugins/middleware-plugin";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  CommandShortcut,
+} from "@/components/ui/command";
+import React from "react";
 
 const AgentPage = () => {
+  const [open, setOpen] = React.useState(false);
+  const [value, setValue] = React.useState("");
+  const frameworks = [
+    {
+      value: "datei1",
+      label: "Datei 1",
+    },
+    {
+      value: "datei2",
+      label: "Datei 2",
+    },
+    {
+      value: "datei3",
+      label: "Datei 3",
+    },
+    {
+      value: "datei4",
+      label: "Datei 4",
+    },
+    {
+      value: "datei5",
+      label: "Datei 5",
+    },
+  ];
+
+  const { selectedItems } = useCustomStore();
+
+  const { addSelectedItem, removeSelectedItem, clearSelectedItems } =
+    useCustomStore();
+
+  const [isDialogOpen, setDialogOpen] = useState(false);
+  const toggleDialog = () => setDialogOpen(!isDialogOpen);
+
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -83,6 +138,17 @@ const AgentPage = () => {
     }
   }, [selected]);
 
+  const handleCreateAction = () => {
+    if (value) {
+      addSelectedItem({
+        label: frameworks.find((framework) => framework.value === value)?.label,
+        value: value,
+      });
+      setDialogOpen(false);
+      setValue("");
+    }
+  };
+
   const handleSave = () => {
     if (selected) {
       updateAgent({
@@ -102,7 +168,7 @@ const AgentPage = () => {
           <div>
             <Heading
               title="Create Agent"
-              description="Create Agent and upload files for Agent´s knowladge."
+              description="Create Agent and create actions for Agent´s knowladge."
               icon={UserPlus}
               iconColor="text-blue-700"
               bgColor="bg-blue-700/10"
@@ -209,7 +275,7 @@ const AgentPage = () => {
                       // value={agentInfo.description}
                       // onChange={handleAgentInfoChange}
                     />
-                    <div className="mt-4 col-span-full">
+                    <div className="mt-4 col-span-full ">
                       <label
                         htmlFor="photo"
                         className="block text-sm font-medium leading-6 text-gray-900"
@@ -265,44 +331,208 @@ const AgentPage = () => {
                       Durch Hochladen von Dateien nutzt der Assistent diese
                       Inhalte für bessere Antworten.
                     </label>
+                    */}
+
+                    <label
+                      htmlFor="agentDescription"
+                      className="mt-8 mb-2 block text-sm font-medium text-gray-700"
+                    >
+                      Aktionen
+                    </label>
+
+                    <Dialog>
+                      <DialogTrigger>
+                        <button
+                          type="button"
+                          onClick={toggleDialog}
+                          className="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                        >
+                          Neue Aktion erstellen
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Datenquelle auswählen</DialogTitle>
+                          <DialogDescription>
+                            Wahl der Datenquelle: SQL-Server oder MinIO-Buckets
+                          </DialogDescription>
+                        </DialogHeader>
+                        <Tabs defaultValue="Synapse DB" className="w-[400px]">
+                          <TabsList>
+                            <TabsTrigger value="Synapse DB">
+                              GO Synapse Database
+                            </TabsTrigger>
+                            <TabsTrigger value="minIO">minIO</TabsTrigger>
+                          </TabsList>
+                          <TabsContent className="pt-4" value="Synapse DB">
+                            <label className="ml-1">Wähle eine Tabelle</label>
+                            <br></br>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={open}
+                                  className="w-[200px] justify-between mt-2"
+                                >
+                                  {value
+                                    ? frameworks.find(
+                                        (framework) => framework.value === value
+                                      )?.label
+                                    : "Tabelle auswählen..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[200px] p-0">
+                                <Command>
+                                  <CommandInput placeholder="Tabelle suchen..." />
+                                  <CommandEmpty>No Backet found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {frameworks.map((framework) => (
+                                      <CommandItem
+                                        key={framework.value}
+                                        value={framework.value}
+                                        onSelect={(currentValue) => {
+                                          setValue(
+                                            currentValue === value
+                                              ? ""
+                                              : currentValue
+                                          );
+                                          setOpen(false);
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            value === framework.value
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        {framework.label}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>{" "}
+                          </TabsContent>
+                          <TabsContent className="pt-4" value="minIO">
+                            <label className="ml-1">Wähle eine Datei</label>{" "}
+                            <br></br>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={open}
+                                  className="w-[200px] justify-between mt-2"
+                                >
+                                  {value
+                                    ? frameworks.find(
+                                        (framework) => framework.value === value
+                                      )?.label
+                                    : "Datei auswählen..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[200px] p-0">
+                                <Command>
+                                  <CommandInput placeholder="Datei suchen..." />
+                                  <CommandEmpty>No Backet found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {frameworks.map((framework) => (
+                                      <CommandItem
+                                        key={framework.value}
+                                        value={framework.value}
+                                        onSelect={(currentValue) => {
+                                          setValue(
+                                            currentValue === value
+                                              ? ""
+                                              : currentValue
+                                          );
+                                          setOpen(false);
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            value === framework.value
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        {framework.label}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          </TabsContent>
+                        </Tabs>
+                        <DialogFooter className="sm:justify-end">
+                          <DialogClose asChild>
+                            <Button type="button" variant="ghost">
+                              Abbrechen
+                            </Button>
+                          </DialogClose>
+                          <DialogClose asChild>
+                            <Button
+                              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                              type="button"
+                              variant="default"
+                              onClick={handleCreateAction}
+                            >
+                              Aktion erstellen
+                            </Button>
+                          </DialogClose>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
 
                     <ul
                       role="list"
-                      className="mb-6 divide-y divide-gray-100 rounded-md border border-gray-200"
+                      className="mb-6 divide-y divide-gray-100 rounded-md border border-gray-200 mt-3"
                     >
-                      <li className="flex items-center justify-between py-4 pl-4 pr-5 text-sm leading-6">
-                        <div className="flex w-0 flex-1 items-center">
-                          <svg
-                            className="h-5 w-5 flex-shrink-0 text-gray-400"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path
-                              fill-rule="evenodd"
-                              d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z"
-                              clip-rule="evenodd"
-                            />
-                          </svg>
-                          <div className="ml-4 flex min-w-0 flex-1 gap-2">
-                            <span className="truncate font-medium">
-                              Bilanzen 2023.pdf
-                            </span>
-                            <span className="flex-shrink-0 text-gray-400">
-                              2.4mb
-                            </span>
+                      {selectedItems.map((item, index) => (
+                        <li
+                          key={index}
+                          className="flex items-center justify-between py-4 pl-4 pr-5 text-sm leading-6"
+                        >
+                          <div className="flex w-0 flex-1 items-center">
+                            <svg
+                              className="h-5 w-5 flex-shrink-0 text-gray-400"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              aria-hidden="true"
+                            >
+                              <path
+                                fill-rule="evenodd"
+                                d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z"
+                                clip-rule="evenodd"
+                              />
+                            </svg>
+                            <div className="ml-4 flex min-w-0 flex-1 gap-2">
+                              <span className="truncate font-medium">
+                                {item.label}{" "}
+                              </span>
+                              <span className="flex-shrink-0 text-gray-400">
+                                2.4mb
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                        <div className="ml-4 flex-shrink-0">
-                          <a
-                            href="#"
-                            className="font-medium text-blue-600 hover:text-blue-500"
-                          >
-                            Herunterladen
-                          </a>
-                        </div>
-                      </li>
-                      <li className="flex items-center justify-between py-4 pl-4 pr-5 text-sm leading-6">
+                          <div className="ml-4 flex-shrink-0">
+                            <a
+                              href="#"
+                              className="font-medium text-blue-600 hover:text-blue-500"
+                            >
+                              Löschen
+                            </a>
+                          </div>
+                        </li>
+                      ))}
+                      {/* <li className="flex items-center justify-between py-4 pl-4 pr-5 text-sm leading-6">
                         <div className="flex w-0 flex-1 items-center">
                           <svg
                             className="h-5 w-5 flex-shrink-0 text-gray-400"
@@ -333,9 +563,10 @@ const AgentPage = () => {
                             Herunterladen
                           </a>
                         </div>
-                      </li>
+                      </li> */}
                     </ul>
-                    <div className="mb-8 lx afm aft avd">
+
+                    {/* <div className="mb-8 lx afm aft avd">
                       <button
                         type="button"
                         className="font-medium text-blue-600 hover:text-blue-500"
@@ -343,19 +574,8 @@ const AgentPage = () => {
                         <span aria-hidden="true">+ </span>
                         Füge eine weitere Datei hinzu
                       </button>
-                    </div> */}
-                    <label
-                      htmlFor="agentDescription"
-                      className="mt-8 mb-2 block text-sm font-medium text-gray-700"
-                    >
-                      Aktionen
-                    </label>
-                    <button
-                      type="button"
-                      className="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                    >
-                      Neue Aktion erstellen
-                    </button>
+                    </div>  */}
+
                     <div className="mt-6 mb-8 flex items-center justify-end gap-x-6">
                       <button
                         type="button"
@@ -448,5 +668,4 @@ const AgentPage = () => {
     </>
   );
 };
-
 export default AgentPage;
