@@ -80,10 +80,8 @@ const AgentPage = () => {
     },
   ];
 
-  const { selectedItems } = useCustomStore();
-
-  const { addSelectedItem, removeSelectedItem, clearSelectedItems } =
-    useCustomStore();
+  const { selectedItems, clearSelectedItems } = useCustomStore();
+  const { selected, updateAgent } = useAgentsStore();
 
   const [isDialogOpen, setDialogOpen] = useState(false);
   const toggleDialog = () => setDialogOpen(!isDialogOpen);
@@ -92,8 +90,6 @@ const AgentPage = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [anweisungen, setAnweisungen] = useState("");
-
-  const { selected, updateAgent } = useAgentsStore();
 
   const [messages, setMessages] = useState<
     CreateChatCompletionRequestMessage[]
@@ -139,14 +135,23 @@ const AgentPage = () => {
   }, [selected]);
 
   const handleCreateAction = () => {
-    if (value) {
-      addSelectedItem({
-        label: frameworks.find((framework) => framework.value === value)?.label,
-        value: value,
-      });
-      setDialogOpen(false);
-      setValue("");
+    if (!selected || selectedItems.length === 0) {
+      console.log("No agent selected or no items selected");
+      return;
     }
+
+    const actionToAdd = selectedItems[0].label;
+
+    const updatedActions = selected.actions
+      ? [...selected.actions, actionToAdd]
+      : [actionToAdd];
+
+    updateAgent({
+      ...selected,
+      actions: updatedActions,
+    });
+
+    clearSelectedItems();
   };
 
   const handleSave = () => {

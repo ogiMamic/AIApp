@@ -3,4 +3,5 @@ export interface SynapseAgent {
   name: string;
   description: string;
   anweisungen: string;
+  actions?: string[];
 }
