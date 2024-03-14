@@ -5,6 +5,14 @@ import ListItem from "./list-item";
 import { SynapseKnowledge } from "@/lib/interfaces/SynapseKnowledge";
 import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ListKnowledges = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +39,28 @@ const ListKnowledges = () => {
 
   return (
     <div className="pt-12 flex-col lg:col-span-3 bg-gray-50 p-0">
+      <DropdownMenu>
+        <DropdownMenuTrigger>
+          <Button
+            className="p-6 w-full"
+            disabled={isLoading}
+            onClick={DropdownMenu}
+          >
+            + Create new Knowledge
+          </Button>
+          Open
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>Profile</DropdownMenuItem>
+          <DropdownMenuItem>Billing</DropdownMenuItem>
+          <DropdownMenuItem>Team</DropdownMenuItem>
+          <DropdownMenuItem>Subscription</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <div className="p-4 mt-auto"></div>
       <ul role="list" className="divide-y divide-gray-100">
         {knowledges.map((knowledge) => (
           <ListItem key={knowledge.id} knowledge={knowledge} />
@@ -85,15 +115,6 @@ const ListKnowledges = () => {
           </div>
         </li> */}
       </ul>
-      <div className="p-4 mt-auto">
-        <Button
-          className="p-6 w-full"
-          disabled={isLoading}
-          onClick={createKnowledge}
-        >
-          + Create new Knowledge
-        </Button>
-      </div>
     </div>
   );
 };

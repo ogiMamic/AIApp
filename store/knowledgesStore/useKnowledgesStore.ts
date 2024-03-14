@@ -33,7 +33,7 @@ export const useKnowledgesStore = create<State & Actions>()(
     persist(
       (set, get) => ({
         userId: initialState.userId,
-        knowledges: initialState.agents,
+        knowledges: initialState.knowledges,
         selected: initialState.selected,
         addKnowledge: (knowledge: SynapseKnowledge) => {
           const collection = get().knowledges;
@@ -63,7 +63,7 @@ export const useKnowledgesStore = create<State & Actions>()(
           });
 
           set((state) => ({
-            knowledge: updatedCollection,
+            knowledges: updatedCollection,
           }));
         },
         selectKnowledge: (knowledge: SynapseKnowledge) => {
