@@ -38,25 +38,29 @@ const ListKnowledges = () => {
   };
 
   return (
-    <div className="pt-12 flex-col lg:col-span-3 bg-gray-50 p-0">
+    <div className="pt-12 pl-8 pr-8 flex-col lg:col-span-3 bg-gray-50 p-0">
       <DropdownMenu>
-        <DropdownMenuTrigger>
-          <Button
-            className="p-6 w-full"
-            disabled={isLoading}
-            onClick={DropdownMenu}
-          >
-            + Create new Knowledge
-          </Button>
-          Open
+        <DropdownMenuTrigger as asChild>
+          <Button className="p-6 w-full">+ Create new Knowledge</Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuItem>New Folder</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Profile</DropdownMenuItem>
-          <DropdownMenuItem>Billing</DropdownMenuItem>
-          <DropdownMenuItem>Team</DropdownMenuItem>
-          <DropdownMenuItem>Subscription</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => console.log("Profile Selected")}>
+            New document
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => console.log("Billing Selected")}>
+            Upload document
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => console.log("Team Selected")}>
+            Import website
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => console.log("Subscription Selected")}
+          >
+            Import from SharePoint
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 

@@ -1,7 +1,7 @@
 "use client";
 import axios from "axios";
 import * as z from "zod";
-import { UserPlus } from "lucide-react";
+import { DatabaseZap } from "lucide-react";
 import { Heading } from "@/components/headling";
 import { useForm } from "react-hook-form";
 import { formSchema } from "./constants";
@@ -52,6 +52,29 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import React from "react";
+
+type Document = {
+  id: string;
+  amount: number;
+  status: "pending" | "processing" | "success" | "failed";
+  email: string;
+};
+
+export const documents: Document[] = [
+  {
+    id: "728ed52f",
+    amount: 100,
+    status: "pending",
+    email: "m@example.com",
+  },
+  {
+    id: "489e1d42",
+    amount: 125,
+    status: "processing",
+    email: "example@gmail.com",
+  },
+  // ...
+];
 
 const KnowledgePage = () => {
   const [open, setOpen] = React.useState(false);
@@ -173,9 +196,9 @@ const KnowledgePage = () => {
             <Heading
               title="Create Knowledge"
               description="Create Knowledge and create actions for Knowledge´s knowladge."
-              icon={UserPlus}
-              iconColor="text-blue-700"
-              bgColor="bg-blue-700/10"
+              icon={DatabaseZap}
+              iconColor="text-green-700"
+              bgColor="bg-green-700/10"
             />
             <div className="px-4 lg:px-8">
               <h5>{selected?.name}</h5>

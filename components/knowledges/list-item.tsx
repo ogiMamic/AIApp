@@ -10,7 +10,7 @@ type Props = {
 const ListItem = ({ knowledge }: Props) => {
   const { selectKnowledge } = useKnowledgesStore();
   return (
-    <li className="flex justify-start items-center py-5 px-4 hover:bg-gray-100 p-8">
+    <li className="flex justify-start items-center py-5 px-0 hover:bg-gray-100 p-8">
       <Button
         variant="ghost"
         title="Show Details"
@@ -20,7 +20,7 @@ const ListItem = ({ knowledge }: Props) => {
         }}
         className="inline-flex items-center justify-start whitespace-nowrap rounded-md w-full"
       >
-        <div className="flex min-w-0 gap-x-4">
+        <div className="flex min-w-0">
           <div className="min-w-0 flex-auto">
             <p className="text-left	text-sm font-semibold leading-6 text-gray-900">
               {knowledge?.name}

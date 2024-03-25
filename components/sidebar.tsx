@@ -17,6 +17,7 @@ import {
   UserPlus,
   Brain,
   DatabaseZap,
+  TableIcon,
 } from "lucide-react";
 
 const montserrat = Montserrat({
@@ -70,6 +71,12 @@ const routes = [
     label: "New Agent",
     icon: UserPlus, // Zamijenite s odgovarajućom ikonom
     href: "/agent", // Pretpostavljena putanja, prilagodite prema potrebi
+    color: "text-blue-700", // Prilagodite boju ikone
+  },
+  {
+    label: "Table",
+    icon: TableIcon, // Zamijenite s odgovarajućom ikonom
+    href: "/documents", // Pretpostavljena putanja, prilagodite prema potrebi
     color: "text-blue-700", // Prilagodite boju ikone
   },
   {
