@@ -4,4 +4,5 @@ export interface SynapseKnowledge {
   description: string;
   anweisungen: string;
   actions?: string[];
+  parentId?: string; // Optional property to indicate the parent folder
 }

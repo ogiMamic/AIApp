@@ -15,11 +15,19 @@ async function getData(): Promise<Document[]> {
 }
 
 export default async function DemoPage() {
-  const data = await getData();
+  const [data, setData] = useState<Document[]>([]);
+
+  React.useEffect(() => {
+    getData().then((data) => setData(data));
+  }, []);
+
+  const handleDelete = (id: string) => {
+    setData((prevData) => prevData.filter((d) => d.id !== id));
+  };
 
   return (
     <div className="container mx-auto py-10">
-      <DataTable columns={columns} data={data} />
+      <DataTable columns={columns} data={data} onDelete={handleDelete} />
     </div>
   );
 }

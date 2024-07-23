@@ -1,7 +1,6 @@
 "use client";
-import React, { useState } from "react";
-import { Button } from "../ui/button";
-import ListItem from "./list-item";
+import React, { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { SynapseKnowledge } from "@/lib/interfaces/SynapseKnowledge";
 import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import { toast } from "sonner";
@@ -9,116 +8,304 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Plus,
+  Trash,
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FileText,
+} from "lucide-react";
 
-const ListKnowledges = () => {
+const ListKnowledges = ({
+  onSelectAction,
+}: {
+  onSelectAction: (
+    action: string,
+    file?: File,
+    parentFolderId?: string
+  ) => void;
+}) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [coll, setColl] = useState<SynapseKnowledge[]>([]);
-  const { addKnowledge, knowledges } = useKnowledgesStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [fileInputId, setFileInputId] = useState<string | null>(null);
+  const {
+    addKnowledge,
+    knowledges,
+    selectKnowledge,
+    selected,
+    removeKnowledge,
+  } = useKnowledgesStore();
+  const [parentFolderId, setParentFolderId] = useState<string | undefined>(
+    undefined
+  );
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set()
+  );
 
-  const createKnowledge = async () => {
+  useEffect(() => {
+    if (knowledges.length > 0 && !selected) {
+      selectKnowledge(knowledges[0]);
+    }
+  }, [knowledges, selectKnowledge, selected]);
+
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId);
+      } else {
+        newSet.add(folderId);
+      }
+      return newSet;
+    });
+  };
+
+  const createKnowledge = async (name: string, parentId?: string) => {
     setIsLoading(true);
-    //TODO: Implement create knowledge
     const id = Math.random().toString(36).substr(2, 9);
     const knowledge: SynapseKnowledge = {
       id: id,
-      name: "Knowledge´s Name " + id,
-      description: "Vertriebsmitarbeiter",
+      name: name,
+      description: parentId ? "" : "Vertriebsmitarbeiter",
+      anweisungen: "",
+      parentId: parentId || undefined,
     };
 
     addKnowledge(knowledge);
     toast.success("Knowledge Created", {
       description: "You have successfully created the knowledge",
     });
-    // setColl([...coll, knowledge]);
     setIsLoading(false);
   };
 
+  const handleFileUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    parentId?: string
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onSelectAction("uploadDocument", file, parentId);
+      setParentFolderId(undefined);
+      setFileInputId(null);
+    }
+  };
+
+  const handleCreateFolder = () => {
+    if (folderName.trim()) {
+      createKnowledge(folderName, parentFolderId);
+      setIsDialogOpen(false);
+      setFolderName("");
+      setParentFolderId(undefined);
+    } else {
+      toast.error("Folder name cannot be empty");
+    }
+  };
+
+  const openCreateFolderDialog = (parentId?: string) => {
+    setIsDialogOpen(true);
+    setParentFolderId(parentId);
+  };
+
+  const handleDeleteFolder = (id: string) => {
+    removeKnowledge(id);
+    toast.success("Folder Deleted", {
+      description: "You have successfully deleted the folder",
+    });
+  };
+
+  const handleSelectItem = (knowledge: SynapseKnowledge) => {
+    selectKnowledge(knowledge);
+  };
+
+  const renderFolderTree = (items: SynapseKnowledge[], parentId?: string) => {
+    return items
+      .filter((item) => item.parentId === parentId)
+      .map((item) => {
+        const isFolder = items.some((subItem) => subItem.parentId === item.id);
+        return (
+          <li key={item.id}>
+            <div
+              className={`flex justify-between items-center pl-4 pr-4 cursor-pointer ${
+                selected?.id === item.id ? "bg-gray-200 rounded-lg" : ""
+              } hover:bg-gray-100`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectItem(item);
+              }}
+            >
+              <div className="flex items-center">
+                {isFolder && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="mr-2 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFolder(item.id);
+                    }}
+                  >
+                    {expandedFolders.has(item.id) ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+                {isFolder ? (
+                  <Folder className="h-4 w-4 mr-2" />
+                ) : (
+                  <FileText className="h-4 w-4 mr-2" />
+                )}
+                <span className="text-sm font-semibold leading-6 text-gray-900">
+                  {item.name}
+                </span>
+              </div>
+              <div className="flex items-center">
+                {isFolder && (
+                  <>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="ml-2 p-0 bg-transparent text-gray-600 hover:text-gray-800 cursor-pointer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onSelect={() => openCreateFolderDialog(item.id)}
+                        >
+                          New Subfolder
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onSelect={() =>
+                            document
+                              .getElementById(`file-upload-${item.id}`)
+                              ?.click()
+                          }
+                        >
+                          New document
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="ml-2 p-0 bg-transparent text-red-500 hover:text-red-700 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteFolder(item.id);
+                      }}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+            {expandedFolders.has(item.id) && (
+              <ul className="pl-4">{renderFolderTree(items, item.id)}</ul>
+            )}
+            <input
+              type="file"
+              id={`file-upload-${item.id}`}
+              className="hidden"
+              onChange={(e) => handleFileUpload(e, item.id)}
+            />
+          </li>
+        );
+      });
+  };
+
   return (
-    <div className="pt-12 pl-8 pr-8 flex-col lg:col-span-3 bg-gray-50 p-0">
+    <div className="pt-12 pl-4 pr-4 flex-col lg:col-span-3 bg-gray-50 p-0">
       <DropdownMenu>
-        <DropdownMenuTrigger as asChild>
-          <Button className="p-6 w-full">+ Create new Knowledge</Button>
-        </DropdownMenuTrigger>
+        <div className="pl-6 pr-6">
+          <DropdownMenuTrigger asChild>
+            <Button className="p-6 w-full mb-4">+ Create new Knowledge</Button>
+          </DropdownMenuTrigger>
+        </div>
         <DropdownMenuContent>
-          <DropdownMenuItem>New Folder</DropdownMenuItem>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={() => openCreateFolderDialog()}
+          >
+            New Folder
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => console.log("Profile Selected")}>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={() =>
+              onSelectAction("newDocument", undefined, parentFolderId)
+            }
+          >
             New document
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => console.log("Billing Selected")}>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={() => document.getElementById("file-upload")?.click()}
+          >
             Upload document
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => console.log("Team Selected")}>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={() => console.log("Team Selected")}
+          >
             Import website
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
+            className="cursor-pointer"
             onSelect={() => console.log("Subscription Selected")}
           >
             Import from SharePoint
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <input
+        type="file"
+        id="file-upload"
+        className="hidden"
+        onChange={(e) => handleFileUpload(e)}
+      />
 
-      <div className="p-4 mt-auto"></div>
       <ul role="list" className="divide-y divide-gray-100">
-        {knowledges.map((knowledge) => (
-          <ListItem key={knowledge.id} knowledge={knowledge} />
-        ))}
-
-        {/* <li className="flex justify-between gap-x-6 py-5 hover:bg-gray-100 p-8">
-          <div className="flex min-w-0 gap-x-4">
-            <div className="min-w-0 flex-auto">
-              <p className="text-sm font-semibold leading-6 text-gray-900">
-                Umsatz
-              </p>
-              <p className="mt-1 truncate text-xs leading-5 text-gray-500">
-                Einnahmen aus Verkauf
-              </p>
-            </div>
-          </div>
-        </li> */}
-        {/* <li className="flex justify-between gap-x-6 py-5 hover:bg-gray-100 p-8">
-          <div className="flex min-w-0 gap-x-4">
-            <div className="min-w-0 flex-auto">
-              <p className="text-sm font-semibold leading-6 text-gray-900">
-                Kosten
-              </p>
-              <p className="mt-1 truncate text-xs leading-5 text-gray-500">
-                Ausgaben des Unternehmens
-              </p>
-            </div>
-          </div>
-        </li>
-        <li className="flex justify-between gap-x-6 py-5 hover:bg-gray-100 p-8">
-          <div className="flex min-w-0 gap-x-4">
-            <div className="min-w-0 flex-auto">
-              <p className="text-sm font-semibold leading-6 text-gray-900">
-                G&V
-              </p>
-              <p className="mt-1 truncate text-xs leading-5 text-gray-500">
-                Finanzbericht über Gewinn und Verlust
-              </p>
-            </div>
-          </div>
-        </li>
-        <li className="flex justify-between gap-x-6 py-5 hover:bg-gray-100 cursor:pointer p-8">
-          <div className="flex min-w-0 gap-x-4">
-            <div className="min-w-0 flex-auto">
-              <p className="text-sm font-semibold leading-6 text-gray-900">
-                Auftragseingang
-              </p>
-              <p className="mt-1 truncate text-xs leading-5 text-gray-500">
-                Volumen der Kundenbestellungen
-              </p>
-            </div>
-          </div>
-        </li> */}
+        {renderFolderTree(knowledges)}
       </ul>
+
+      {isDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75">
+          <div className="bg-white p-8 rounded shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Create New Folder</h2>
+            <input
+              type="text"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              placeholder="Enter folder name"
+              className="w-full p-2 border border-gray-300 rounded mb-4"
+            />
+            <div className="flex justify-end">
+              <Button onClick={handleCreateFolder} disabled={isLoading}>
+                {isLoading ? "Creating..." : "Create"}
+              </Button>
+              <Button onClick={() => setIsDialogOpen(false)} className="ml-2">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
