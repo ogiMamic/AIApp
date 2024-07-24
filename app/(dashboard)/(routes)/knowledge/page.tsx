@@ -194,13 +194,11 @@ const KnowledgePage = () => {
     }
   };
 
-  const handleDeleteDocument = async (id: string) => {
-    try {
-      await axios.delete(`/api/knowledge`, { data: { id } });
-      setTableData((prevData) => prevData.filter((doc) => doc.id !== id));
-    } catch (error) {
+  const handleDeleteDocument = (id: string) => {
+    setTableData((prevData) => prevData.filter((doc) => doc.id !== id));
+    axios.delete(`/api/documents/${id}`).catch((error) => {
       console.error("Failed to delete document", error);
-    }
+    });
   };
 
   const columnsWithActions = [

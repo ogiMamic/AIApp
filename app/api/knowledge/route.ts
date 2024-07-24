@@ -41,14 +41,12 @@ export async function DELETE(req: Request) {
     const { id } = await req.json();
 
     const deletedDocument = await prisma.document.delete({
-      where: {
-        id: id,
-      },
+      where: { id: id },
     });
 
     return new NextResponse(JSON.stringify(deletedDocument), { status: 200 });
   } catch (error) {
     console.log("[DELETE_ERROR]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    return new NextResponse("Failed to delete document", { status: 500 });
   }
 }
