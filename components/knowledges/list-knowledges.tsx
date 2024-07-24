@@ -19,6 +19,7 @@ import {
   Folder,
   FileText,
 } from "lucide-react";
+import axios from "axios";
 
 const ListKnowledges = ({
   onSelectAction,
@@ -39,6 +40,7 @@ const ListKnowledges = ({
     selectKnowledge,
     selected,
     removeKnowledge,
+    setKnowledges,
   } = useKnowledgesStore();
   const [parentFolderId, setParentFolderId] = useState<string | undefined>(
     undefined
@@ -46,6 +48,12 @@ const ListKnowledges = ({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set()
   );
+
+  useEffect(() => {
+    axios.get("/api/knowledge").then((response) => {
+      setKnowledges(response.data);
+    });
+  }, [setKnowledges]);
 
   useEffect(() => {
     if (knowledges.length > 0 && !selected) {
@@ -67,40 +75,63 @@ const ListKnowledges = ({
 
   const createKnowledge = async (name: string, parentId?: string) => {
     setIsLoading(true);
-    const id = Math.random().toString(36).substr(2, 9);
-    const knowledge: SynapseKnowledge = {
-      id: id,
-      name: name,
-      description: parentId ? "" : "Vertriebsmitarbeiter",
-      anweisungen: "",
-      parentId: parentId || undefined,
-    };
-
-    addKnowledge(knowledge);
-    toast.success("Knowledge Created", {
-      description: "You have successfully created the knowledge",
-    });
-    setIsLoading(false);
+    try {
+      const response = await axios.post("/api/knowledge", {
+        name,
+        description: parentId ? "" : "Vertriebsmitarbeiter",
+        anweisungen: "",
+        parentId: parentId || undefined,
+      });
+      const knowledge = response.data;
+      addKnowledge(knowledge);
+      toast.success("Knowledge Created", {
+        description: "You have successfully created the knowledge",
+      });
+    } catch (error) {
+      console.error("Failed to create knowledge", error);
+      toast.error("Failed to create knowledge");
+    } finally {
+      setIsLoading(false);
+      setIsDialogOpen(false);
+      setFolderName("");
+      setParentFolderId(undefined);
+    }
   };
 
-  const handleFileUpload = (
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     parentId?: string
   ) => {
     const file = e.target.files?.[0];
     if (file) {
-      onSelectAction("uploadDocument", file, parentId);
-      setParentFolderId(undefined);
-      setFileInputId(null);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("name", file.name);
+      formData.append("description", "");
+      formData.append("anweisungen", "");
+      formData.append("parentId", parentId || "");
+
+      try {
+        const response = await axios.post("/api/knowledge", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        const savedDocument = response.data;
+        addKnowledge(savedDocument);
+        toast.success("Document Uploaded", {
+          description: "You have successfully uploaded the document",
+        });
+      } catch (error) {
+        console.error("Failed to upload document", error);
+        toast.error("Failed to upload document");
+      }
     }
   };
 
   const handleCreateFolder = () => {
     if (folderName.trim()) {
       createKnowledge(folderName, parentFolderId);
-      setIsDialogOpen(false);
-      setFolderName("");
-      setParentFolderId(undefined);
     } else {
       toast.error("Folder name cannot be empty");
     }
@@ -111,11 +142,17 @@ const ListKnowledges = ({
     setParentFolderId(parentId);
   };
 
-  const handleDeleteFolder = (id: string) => {
-    removeKnowledge(id);
-    toast.success("Folder Deleted", {
-      description: "You have successfully deleted the folder",
-    });
+  const handleDeleteFolder = async (id: string) => {
+    try {
+      await axios.delete(`/api/knowledge`, { data: { id } });
+      removeKnowledge(id);
+      toast.success("Folder Deleted", {
+        description: "You have successfully deleted the folder",
+      });
+    } catch (error) {
+      console.error("Failed to delete folder", error);
+      toast.error("Failed to delete folder");
+    }
   };
 
   const handleSelectItem = (knowledge: SynapseKnowledge) => {
