@@ -8,25 +8,6 @@ interface State {
   selected: SynapseKnowledge | null;
 }
 
-interface Knowledge {
-  id: string;
-  name: string;
-  description: string;
-  anweisungen: string;
-  parentId?: string;
-}
-
-interface KnowledgesStore {
-  knowledges: Knowledge[];
-  selected: Knowledge | null;
-
-  addKnowledge: (knowledge: Knowledge) => void;
-  removeKnowledge: (id: string) => void;
-  updateKnowledge: (knowledge: Knowledge) => void;
-  selectKnowledge: (knowledge: Knowledge) => void;
-  setKnowledges: (knowledges: Knowledge[]) => void;
-}
-
 interface Actions {
   addKnowledge: (knowledge: SynapseKnowledge) => void;
   removeKnowledge: (id: string) => void; // Changed to accept id directly
@@ -40,23 +21,34 @@ const initialState: State = {
   selected: null,
 };
 
-export const useKnowledgesStore = create<KnowledgesStore>((set) => ({
-  knowledges: [],
-  selected: null,
-  addKnowledge: (knowledge) =>
-    set((state) => ({
-      knowledges: [...state.knowledges, knowledge],
-    })),
-  removeKnowledge: (id) =>
-    set((state) => ({
-      knowledges: state.knowledges.filter((knowledge) => knowledge.id !== id),
-    })),
-  selectKnowledge: (knowledge) => set({ selected: knowledge }),
-  updateKnowledge: (updatedKnowledge) =>
-    set((state) => ({
-      knowledges: state.knowledges.map((knowledge) =>
-        knowledge.id === updatedKnowledge.id ? updatedKnowledge : knowledge
-      ),
-    })),
-  setKnowledges: (knowledges) => set({ knowledges }),
-}));
+export const useKnowledgesStore = create<State & Actions>()(
+  devtools(
+    persist(
+      (set, get) => ({
+        ...initialState,
+        addKnowledge: (knowledge: SynapseKnowledge) => {
+          const updatedCollection = [...get().knowledges, knowledge];
+          set({ knowledges: updatedCollection });
+        },
+        removeKnowledge: (id: string) => {
+          const updatedCollection = get().knowledges.filter(
+            (item) => item.id !== id
+          );
+          set({ knowledges: updatedCollection });
+        },
+        updateKnowledge: (knowledge: SynapseKnowledge) => {
+          const updatedCollection = get().knowledges.map((item) =>
+            item.id === knowledge.id ? knowledge : item
+          );
+          set({ knowledges: updatedCollection });
+        },
+        selectKnowledge: (knowledge: SynapseKnowledge) => {
+          set({ selected: knowledge });
+        },
+      }),
+      {
+        name: "synapse-knowledge-store",
+      }
+    )
+  )
+);
