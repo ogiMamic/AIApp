@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
+<<<<<<< HEAD
 import { PrismaClient } from "@prisma/client";
+=======
+import { PrismaClient, Prisma } from "@prisma/client";
+>>>>>>> parent of 69d90fe (Delete Document from Table)
 
 export async function POST(req: Request) {
   try {
@@ -33,23 +37,4 @@ export async function GET(req: Request) {
   const documents = await prisma.document.findMany();
   return new NextResponse(JSON.stringify(documents), { status: 200 });
 }
-<<<<<<< HEAD
 
-export async function DELETE(req: Request) {
-  try {
-    const { id } = await req.json();
-
-    const deletedDocument = await prisma.document.delete({
-      where: {
-        id: id,
-      },
-    });
-
-    return new NextResponse(JSON.stringify(deletedDocument), { status: 200 });
-  } catch (error) {
-    console.log("[DELETE_ERROR]", error);
-    return new NextResponse("Failed to delete document", { status: 500 });
-  }
-}
-=======
->>>>>>> parent of 69d90fe (Delete Document from Table)
