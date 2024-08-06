@@ -27,13 +27,6 @@ interface KnowledgesStore {
   setKnowledges: (knowledges: Knowledge[]) => void;
 }
 
-interface Actions {
-  addKnowledge: (knowledge: SynapseKnowledge) => void;
-  removeKnowledge: (id: string) => void; // Changed to accept id directly
-  updateKnowledge: (knowledge: SynapseKnowledge) => void;
-  selectKnowledge: (knowledge: SynapseKnowledge) => void;
-}
-
 const initialState: State = {
   userId: null,
   knowledges: [],

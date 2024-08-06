@@ -21,8 +21,16 @@ import { UserAvatar } from "@/components/user-avatar";
 import { BotAvatar } from "@/components/bot-avatar";
 import { Textarea } from "@/components/ui/textarea";
 import ListAgents from "@/components/agents/list-agents";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAgentsStore } from "@/store/agentsStore/useAgentsStore";
 import { useCustomStore } from "@/store/customStore/useCustomStore";
+import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import AgentForm from "@/components/AgentForm";
 import { SUPPORTED_NATIVE_MODULES } from "next/dist/build/webpack/plugins/middleware-plugin";
 import {
@@ -55,6 +63,9 @@ import {
 import React from "react";
 
 const AgentPage = () => {
+  const [selectedKnowledge, setSelectedKnowledge] = useState(null);
+  const { knowledges } = useKnowledgesStore();
+
   const [open, setOpen] = React.useState(false);
   const [value, setValue] = React.useState("");
   const frameworks = [
@@ -337,6 +348,30 @@ const AgentPage = () => {
                       Inhalte für bessere Antworten.
                     </label>
                     */}
+
+                    <div className="mt-4 flex-col lg:col-span-6">
+                      <label
+                        htmlFor="knowledgeSelect"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Wähle eine Wissensdatenbank
+                      </label>
+                      <Select onValueChange={setSelectedKnowledge}>
+                        <SelectTrigger
+                          id="knowledgeSelect"
+                          className="mt-1 w-full"
+                        >
+                          <SelectValue placeholder="Select a knowledge..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {knowledges.map((knowledge) => (
+                            <SelectItem key={knowledge.id} value={knowledge.id}>
+                              {knowledge.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
                     <label
                       htmlFor="agentDescription"

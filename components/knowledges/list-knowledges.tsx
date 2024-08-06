@@ -98,7 +98,8 @@ const ListKnowledges = ({
     }
   };
 
-  const handleFileUpload = async (    e: React.ChangeEvent<HTMLInputElement>,
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
     parentId?: string
   ) => {
     const file = e.target.files?.[0];
@@ -155,6 +156,7 @@ const ListKnowledges = ({
       console.error("Failed to delete folder", error);
       toast.error("Failed to delete folder");
     }
+  };
 
   const handleSelectItem = (knowledge: SynapseKnowledge) => {
     selectKnowledge(knowledge);

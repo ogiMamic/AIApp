@@ -249,7 +249,7 @@ const KnowledgePage = () => {
     <>
       <div className="mt-0 w-full grid grid-cols-12 divide-gray-200 flex-col divide-x divide-y">
         <ListKnowledge onSelectAction={handleDropdownSelect} />
-        <div className="pt-2 flex-col lg:col-span-9 bg-gray-0 p-2 rounded-lg">
+        <div className="pt-12 flex-col lg:col-span-9 bg-gray-0 p-2 rounded-lg">
           <div>
             <Heading
               title="Create Knowledge"
