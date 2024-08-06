@@ -166,11 +166,19 @@ const KnowledgePage = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleDropdownSelect("uploadDocument", file);
+      // Directly call handleUploadDocument if no dropdown selection is required
+      handleUploadDocument(file);
     }
   };
 
-  const handleUploadDocument = async (file, document) => {
+  const handleUploadDocument = async (file: File) => {
+    // Define a default document object or fetch these details from user input
+    const document = {
+      name: file.name, // Assuming the file name is used as the document name
+      description: "", // Set default description or obtain from user
+      anweisungen: "", // Set default anweisungen or obtain from user
+    };
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("name", document.name);

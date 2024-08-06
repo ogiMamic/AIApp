@@ -1,71 +1,67 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import multer from "multer";
-import { Readable } from "stream";
 
 const prisma = new PrismaClient();
-const upload = multer();
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
-    const formData = await new Promise((resolve, reject) => {
-      const form = new multiparty.Form();
-      form.parse(req, (err, fields, files) => {
-        if (err) return reject(err);
-        resolve({ fields, files });
-      });
-    });
+    // Check if the request has a form data
+    if (!req.body) {
+      return NextResponse.json({ error: "No data provided" }, { status: 400 });
+    }
 
-    const { name, description, anweisungen } = formData.fields;
-    const file = formData.files.file[0];
+    // Read the request body as form data
+    const formData = await req.formData();
+
+    const name = formData.get("name") as string;
+    const description = formData.get("description") as string;
+    const anweisungen = formData.get("anweisungen") as string;
 
     if (!name || !description || !anweisungen) {
-      return new NextResponse("Invalid input", { status: 400 });
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
 
     const document = await prisma.document.create({
       data: {
-        name: name[0],
-        description: description[0],
-        content: anweisungen[0],
+        name,
+        description,
+        content: anweisungen,
       },
     });
 
-    return new NextResponse(JSON.stringify(document), { status: 200 });
+    return NextResponse.json(document, { status: 200 });
   } catch (error) {
-    console.log("[CODE_ERROR]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    console.error("[POST_ERROR]", error);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
 export async function GET() {
   try {
     const documents = await prisma.document.findMany();
-    return new NextResponse(JSON.stringify(documents), { status: 200 });
+    return NextResponse.json(documents, { status: 200 });
   } catch (error) {
     console.error("[GET_ERROR]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
-export async function DELETE(req) {
+export async function DELETE(req: Request) {
   try {
     const { id } = await req.json();
+    if (!id) {
+      return NextResponse.json({ error: "ID is required" }, { status: 400 });
+    }
+
     const deletedDocument = await prisma.document.delete({
       where: {
         id,
       },
     });
 
-    return new NextResponse(JSON.stringify(deletedDocument), { status: 200 });
+    return NextResponse.json(deletedDocument, { status: 200 });
   } catch (error) {
     console.log("[DELETE_ERROR]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
