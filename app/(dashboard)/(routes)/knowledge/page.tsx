@@ -170,22 +170,19 @@ const KnowledgePage = () => {
     }
   };
 
-  const handleUploadDocument = async (
-    file: File,
-    document: KnowledgeDocument
-  ) => {
+  const handleUploadDocument = async (file, document) => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("name", document.name);
     formData.append("description", document.description);
     formData.append("anweisungen", document.anweisungen);
 
-    const obj = Object.fromEntries(formData.entries());
-
-    console.log(obj);
-
     try {
-      const response = await axios.post("/api/knowledge", obj);
+      const response = await axios.post("/api/knowledge", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
       const savedDocument = response.data;
       setTableData((prevData) => [...prevData, savedDocument]);
       addKnowledge(savedDocument); // Add to the list as well
