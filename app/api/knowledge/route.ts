@@ -16,10 +16,20 @@ export async function POST(req: Request) {
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
     const anweisungen = formData.get("anweisungen") as string;
+    console.log("formData log");
+    console.log(formData);
 
-    if (!name || !description || !anweisungen) {
+    if (!name) {
+      console.log("name =>  ", name);
+      console.log("description =>  ", description);
+      console.log("anweisungen =>  ", anweisungen);
+
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
+
+    console.log("ogi123");
+    console.log(name, description, anweisungen);
+    console.log("ogi345");
 
     const document = await prisma.document.create({
       data: {
@@ -28,6 +38,8 @@ export async function POST(req: Request) {
         content: anweisungen,
       },
     });
+
+    console.log("ogi567");
 
     return NextResponse.json(document, { status: 200 });
   } catch (error) {

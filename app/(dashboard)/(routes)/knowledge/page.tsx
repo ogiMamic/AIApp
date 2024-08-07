@@ -26,6 +26,14 @@ export const formSchema = z.object({
   prompt: z.string().min(1, "Prompt is required"),
 });
 
+const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    // Assuming handleDropdownSelect handles the file upload action
+    handleDropdownSelect("uploadDocument", file);
+  }
+};
+
 const KnowledgePage = () => {
   const [open, setOpen] = React.useState(false);
   const [value, setValue] = React.useState("");
@@ -89,17 +97,13 @@ const KnowledgePage = () => {
 
   useEffect(() => {
     axios.get("/api/knowledge").then((response) => {
-      var col: any = [];
-      response.data.forEach((doc: any) => {
-        var docobj = {
-          id: doc.id,
-          name: doc.name,
-          description: doc.description,
-          anweisungen: doc.anweisungen,
-        };
-        col.push(docobj);
-      });
-      setTableData(col);
+      const documents = response.data.map((doc: any) => ({
+        id: doc.id,
+        name: doc.name,
+        description: doc.description,
+        anweisungen: doc.anweisungen,
+      }));
+      setTableData(documents);
     });
   }, []);
 
@@ -149,43 +153,24 @@ const KnowledgePage = () => {
 
       setTableData((prevData) => [...prevData, newDocument]);
     } else if (action === "uploadDocument" && file) {
-      const fileUrl = URL.createObjectURL(file);
-      const newDocument: KnowledgeDocument = {
-        id: `new-${Date.now()}`,
-        name: file.name,
-        description: "",
-        anweisungen: fileUrl,
-        parentId: parentFolderId,
-      };
-
-      // Call the API to save the document in the database and update the table data
-      handleUploadDocument(file, newDocument);
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Directly call handleUploadDocument if no dropdown selection is required
       handleUploadDocument(file);
     }
   };
 
   const handleUploadDocument = async (file: File) => {
-    // Define a default document object or fetch these details from user input
-    const document = {
-      name: file.name, // Assuming the file name is used as the document name
-      description: "", // Set default description or obtain from user
-      anweisungen: "", // Set default anweisungen or obtain from user
-    };
+    if (!file) {
+      console.error("No file provided");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("name", document.name);
-    formData.append("description", document.description);
-    formData.append("anweisungen", document.anweisungen);
+    formData.append("name", file.name || ""); // Ensure there's a default value if `file.name` is not available
+    formData.append("description", ""); // Set this as needed
+    formData.append("anweisungen", ""); // Set this as needed
 
     try {
+      console.log("Sending formData:", formData);
       const response = await axios.post("/api/knowledge", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -193,9 +178,17 @@ const KnowledgePage = () => {
       });
       const savedDocument = response.data;
       setTableData((prevData) => [...prevData, savedDocument]);
-      addKnowledge(savedDocument); // Add to the list as well
-    } catch (error) {
+      addKnowledge(savedDocument);
+    } catch (error: any) {
       console.error("Failed to upload document", error);
+
+      if (error.response) {
+        console.error("Server Response:", error.response.data);
+      } else if (error.request) {
+        console.error("Request made but no response received", error.request);
+      } else {
+        console.error("Error setting up request", error.message);
+      }
     }
   };
 
@@ -205,6 +198,8 @@ const KnowledgePage = () => {
       console.error("Failed to delete document", error);
     });
   };
+
+  // Table column definitions and render function continue...
 
   const columnsWithActions = [
     {
