@@ -38,7 +38,7 @@ const KnowledgePage = () => {
   const [open, setOpen] = React.useState(false);
   const [value, setValue] = React.useState("");
   const { selectedItems, clearSelectedItems } = useCustomStore();
-  const { knowledges, selected, updateKnowledge, addKnowledge } =
+  const { knowledges, selected, updateKnowledge, addKnowledge, setKnowledges } =
     useKnowledgesStore();
 
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -96,6 +96,10 @@ const KnowledgePage = () => {
   }, [knowledges]);
 
   useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  useEffect(() => {
     axios.get("/api/knowledge").then((response) => {
       const documents = response.data.map((doc: any) => ({
         id: doc.id,
@@ -106,6 +110,22 @@ const KnowledgePage = () => {
       setTableData(documents);
     });
   }, []);
+
+  const fetchDocuments = async () => {
+    try {
+      const response = await axios.get("/api/knowledge");
+      const documents = response.data.map((doc: any) => ({
+        id: doc.id,
+        name: doc.name,
+        description: doc.description,
+        anweisungen: doc.anweisungen,
+      }));
+      setTableData(documents);
+      setKnowledges(documents);
+    } catch (error) {
+      console.error("Failed to fetch documents", error);
+    }
+  };
 
   const handleCreateAction = () => {
     if (!selected || selectedItems.length === 0) {
@@ -192,11 +212,33 @@ const KnowledgePage = () => {
     }
   };
 
-  const handleDeleteDocument = (id: string) => {
-    setTableData((prevData) => prevData.filter((doc) => doc.id !== id));
-    axios.delete(`/api/documents/${id}`).catch((error) => {
+  const handleDeleteDocument = async (id: string) => {
+    try {
+      const response = await axios.delete(`/api/knowledge`, {
+        data: { id },
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.status === 200) {
+        setTableData((prevData) => prevData.filter((doc) => doc.id !== id));
+        console.log("Document deleted successfully");
+        fetchDocuments();
+      } else {
+        console.error("Failed to delete document", response.data);
+      }
+    } catch (error: any) {
       console.error("Failed to delete document", error);
-    });
+
+      if (error.response) {
+        console.error("Server Response:", error.response.data);
+      } else if (error.request) {
+        console.error("Request made but no response received", error.request);
+      } else {
+        console.error("Error setting up request", error.message);
+      }
+    }
   };
 
   // Table column definitions and render function continue...
