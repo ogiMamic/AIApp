@@ -191,24 +191,34 @@ const KnowledgePage = () => {
 
     try {
       console.log("Sending formData:", formData);
-      const response = await axios.post("/api/knowledge", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+      const response = await fetch("/api/knowledge", {
+        method: "POST",
+        body: formData,
       });
-      const savedDocument = response.data;
-      setTableData((prevData) => [...prevData, savedDocument]);
-      addKnowledge(savedDocument);
-    } catch (error: any) {
-      console.error("Failed to upload document", error);
 
-      if (error.response) {
-        console.error("Server Response:", error.response.data);
-      } else if (error.request) {
-        console.error("Request made but no response received", error.request);
-      } else {
-        console.error("Error setting up request", error.message);
+      const contentType = response.headers.get("content-type");
+
+      if (!response.ok) {
+        throw new Error(`Server responded with status ${response.status}`);
       }
+
+      let result;
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        result = await response.json();
+      } else if (contentType && contentType.indexOf("text/html") !== -1) {
+        const textResponse = await response.text();
+        console.error("HTML Response:", textResponse);
+        throw new Error("Unexpected HTML response from server");
+      } else {
+        throw new Error("Unsupported content type in response");
+      }
+
+      console.log("Upload successful:", result);
+      // Assuming result is the saved document data returned by the server
+      setTableData((prevData) => [...prevData, result]);
+      addKnowledge(result);
+    } catch (error) {
+      console.error("Failed to upload document", error);
     }
   };
 
