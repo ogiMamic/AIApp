@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import * as z from "zod";
-import { useForm, SubmitHandler, FormProvider } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Heading } from "@/components/headling";
 import {
@@ -33,8 +33,6 @@ interface IMessage {
 
 const ConversationPage = () => {
   const router = useRouter();
-  const [file, setFile] = useState<File | null>(null);
-  const [uploadError, setUploadError] = useState<string>("");
   const [messages, setMessages] = useState<IMessage[]>([]);
   const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
     null
@@ -47,30 +45,27 @@ const ConversationPage = () => {
     resolver: zodResolver(formSchema),
   });
 
-  const { handleSubmit, reset, getValues, formState } = methods;
+  const { handleSubmit, formState } = methods;
   const isLoading = formState.isSubmitting;
 
-  const onSubmit: SubmitHandler<z.infer<typeof formSchema>> = async (data) => {
-    const formData = new FormData();
-    formData.append("prompt", data.prompt);
-
-    if (file) {
-      formData.append("attachment", file);
-    }
-
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const response = await axios.post("/api/conversation", formData);
+      const userMessage: IMessage = {
+        role: "user",
+        content: values.prompt,
+      };
+      const newMessages = [...messages, userMessage];
 
-      if (response.status !== 200) {
-        throw new Error("Fehler beim Hochladen der Datei.");
-      }
+      const response = await axios.post("/api/conversation", {
+        messages: newMessages,
+      });
 
-      const responseData = response.data;
-      reset();
-      setFile(null);
-    } catch (error) {
-      console.error(error);
-      setUploadError("Fehler beim Hochladen der Datei.");
+      setMessages((current) => [...current, userMessage, response.data]);
+      methods.reset();
+    } catch (error: any) {
+      console.log(error);
+    } finally {
+      router.refresh();
     }
   };
 
@@ -87,7 +82,6 @@ const ConversationPage = () => {
         <FormProvider {...methods}>
           <form
             onSubmit={handleSubmit(onSubmit)}
-            encType="multipart/form-data"
             className="rounded-lg border w-full p-4 px-3 md:px-6 focus-within:shadow-sm grid grid-cols-12 gap-2"
           >
             <FormField
@@ -106,22 +100,6 @@ const ConversationPage = () => {
               )}
             />
             <div className="col-span-12 lg:col-span-10 flex space-x-2 items-end">
-              <FormField
-                name="attachment"
-                render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormControl className="m-0 p-0">
-                      <Input
-                        type="file"
-                        className="border-0 outline-none focus-visible:ring-0 focus-visible:ring-transparent"
-                        disabled={isLoading}
-                        onChange={(e) => setFile(e.target.files?.[0] || null)}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 name="knowledge"
                 render={({ field }) => (
