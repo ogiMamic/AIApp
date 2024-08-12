@@ -303,10 +303,10 @@ const KnowledgePage = () => {
             bgColor="bg-green-700/10"
           />
           <div className="mt-4 px-4 lg:px-8">
-            <h5 classname="text-lg font-semibold">{selected?.name}</h5>
+            <h5 className="text-lg font-semibold">{selected?.name}</h5>
             <div className="mt-4 grid grid-cols-1 gap-4">
               <DataTable
-                className="w-full"
+                className={`w-full`}
                 columns={columnsWithActions}
                 data={tableData}
               />
