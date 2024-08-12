@@ -170,7 +170,7 @@ const ListKnowledges = ({
         return (
           <li key={item.id}>
             <div
-              className={`flex justify-between items-center pl-4 pr-4 cursor-pointer ${
+              className={`flex justify-between items-center pl-4 pr-4 pt-1 pb-1 cursor-pointer ${
                 selected?.id === item.id ? "bg-gray-200 rounded-lg" : ""
               } hover:bg-gray-100`}
               onClick={(e) => {
@@ -269,9 +269,9 @@ const ListKnowledges = ({
   };
 
   return (
-    <div className="pt-12 pl-4 pr-4 flex-col lg:col-span-3 bg-gray-50 p-0">
+    <div className="pt-6 pb-4 pl-4 pr-4 flex-col lg:col-span-3 bg-gray-50 p-0 h-full ">
       <DropdownMenu>
-        <div className="pl-6 pr-6">
+        <div className="pl-6 pr-6 pb-4">
           <DropdownMenuTrigger asChild>
             <Button className="p-6 w-full mb-4">+ Create new Knowledge</Button>
           </DropdownMenuTrigger>

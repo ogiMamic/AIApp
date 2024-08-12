@@ -67,6 +67,7 @@ export function DataTable<TData, TValue>({
       columnVisibility,
       rowSelection,
     },
+    initialState: { pagination: { pageSize: 6 } }, // Set page size to 6
   });
 
   return (

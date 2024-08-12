@@ -289,66 +289,61 @@ const KnowledgePage = () => {
 
   return (
     <>
-      <div className="mt-0 w-full grid grid-cols-12 divide-gray-200 flex-col divide-x divide-y">
-        <ListKnowledge onSelectAction={handleDropdownSelect} />
-        <div className="pt-12 flex-col lg:col-span-9 bg-gray-0 p-2 rounded-lg">
-          <div>
-            <Heading
-              title="Create Knowledge"
-              description="Create Knowledge and create actions for Knowledge´s knowledge."
-              icon={DatabaseZap}
-              iconColor="text-green-700"
-              bgColor="bg-green-700/10"
-            />
-            <div className="px-4 lg:px-8">
-              <h5>{selected?.name}</h5>
-              <div className="w-full grid grid-cols-12 divide-gray-200 gap-16 flex-col">
-                <div className="mt-4 flex-col lg:col-span-12">
-                  <div className="flex w-full items-center justify-between">
-                    <DataTable
-                      className="w-full"
-                      columns={columnsWithActions}
-                      data={tableData}
-                    />
-                  </div>
-                  <div className="mt-4 flex-col">
-                    <div className="mt-6 mb-8 flex items-center justify-end gap-x-6">
-                      <button
-                        type="button"
-                        className="text-sm font-semibold leading-6 text-gray-900"
-                      >
-                        Löschen
-                      </button>
-                      <button
-                        type="button"
-                        className="text-sm font-semibold leading-6 text-gray-900"
-                      >
-                        Abbrechen
-                      </button>
-                      <button
-                        onClick={handleSave}
-                        type="submit"
-                        className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                      >
-                        Speichern
-                      </button>
-                    </div>
-                    <div>
-                      <input
-                        type="file"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        id="file-upload"
-                      />
-                      <label
-                        htmlFor="file-upload"
-                        className="cursor-pointer text-blue-600 underline"
-                      >
-                        Upload Document
-                      </label>
-                    </div>
-                  </div>
-                </div>
+      <div className="mt-0 w-full grid grid-cols-1 lg:grid-cols-12 gap- divide-gray-200">
+        <div className="col-span-12 lg:col-span-3">
+          <ListKnowledge onSelectAction={handleDropdownSelect} />
+        </div>
+
+        <div className="col-span-12 lg:col-span-9 bg-gray-0 p-4 rounded-lg">
+          <Heading
+            title="Create Knowledge"
+            description="Create Knowledge and create actions for Knowledge´s knowledge."
+            icon={DatabaseZap}
+            iconColor="text-green-700"
+            bgColor="bg-green-700/10"
+          />
+          <div className="mt-4 px-4 lg:px-8">
+            <h5 classname="text-lg font-semibold">{selected?.name}</h5>
+            <div className="mt-4 grid grid-cols-1 gap-4">
+              <DataTable
+                className="w-full"
+                columns={columnsWithActions}
+                data={tableData}
+              />
+              <div className="mt-4 flex flex-col lg:flex-row items-end lg:items-center justify-end gap-4">
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-gray-900"
+                >
+                  Löschen
+                </button>
+                <button
+                  type="button"
+                  className="text-sm font-semibold leading-6 text-gray-900"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={handleSave}
+                  type="submit"
+                  className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                >
+                  Speichern
+                </button>
+              </div>
+              <div className="mt-4">
+                <input
+                  type="file"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="cursor-pointer text-blue-600 underline"
+                >
+                  Upload Document
+                </label>
               </div>
             </div>
           </div>
