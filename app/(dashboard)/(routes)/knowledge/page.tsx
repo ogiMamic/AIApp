@@ -186,9 +186,20 @@ const KnowledgePage = () => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("name", file.name || ""); // Ensure there's a default value if `file.name` is not available
-    formData.append("description", ""); // Set this as needed
-    formData.append("anweisungen", ""); // Set this as needed
+    formData.append("description", description); // Set this as needed
+    formData.append("anweisungen", anweisungen); // Set this as needed
 
+    console.log("Sending formData:", file);
+
+    //convert file to base64
+    const fileReader = new FileReader();
+    fileReader.readAsDataURL(file);
+    fileReader.onloadend = function () {
+      const base64 = fileReader.result as string;
+      console.log("base64", base64);
+      formData.append("base64", base64);
+    };
+    return;
     try {
       console.log("Sending formData:", formData);
       const response = await axios.post("/api/knowledge", formData, {
@@ -196,6 +207,7 @@ const KnowledgePage = () => {
           "Content-Type": "multipart/form-data",
         },
       });
+
       const savedDocument = response.data;
       setTableData((prevData) => [...prevData, savedDocument]);
       addKnowledge(savedDocument);
@@ -246,7 +258,7 @@ const KnowledgePage = () => {
   const columnsWithActions = [
     {
       id: "select",
-      header: ({ table }) => (
+      header: ({ table }: { table: any }) => (
         <input
           type="checkbox"
           {...{
@@ -256,7 +268,7 @@ const KnowledgePage = () => {
           }}
         />
       ),
-      cell: ({ row }) => (
+      cell: ({ row }: { row: any }) => (
         <div className="px-1">
           <input
             type="checkbox"

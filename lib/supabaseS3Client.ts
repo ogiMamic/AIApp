@@ -12,4 +12,4 @@ const client = new S3Client({
   },
 });
 
-export default client;
+export const supabaseS3Client = client;

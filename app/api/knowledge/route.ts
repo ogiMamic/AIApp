@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { supabase } from "@/lib/supabaseClient";
+import { supabaseS3Client } from "@/lib/supabaseS3Client";
+import { decode } from "base64-arraybuffer";
 
 const prisma = new PrismaClient();
 
@@ -13,12 +16,42 @@ export async function POST(req: Request) {
     // Read the request body as form data
     const formData = await req.formData();
 
+    console.log("formData log start");
+    console.log(formData);
+    console.log("formData log end");
+
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
     const anweisungen = formData.get("anweisungen") as string;
     console.log("formData log");
     console.log(formData);
+    const file = formData.get("file") as File;
+    const base64 = formData.get("base64") as string;
 
+    console.log("base64", base64);
+    try {
+      const fileName = file.name;
+
+      //upload base64 to supabase storage
+      const base641 = base64.split("base64,")[1];
+
+      var { data, error } = await supabase.storage
+        .from("AI Documents")
+        .upload(fileName, decode(base641), {
+          cacheControl: "3600",
+          contentType: file.type,
+          upsert: true,
+        });
+      if (error) {
+        console.error("Error uploading file: ", error);
+      } else {
+        console.log("File uploaded successfully: ", data);
+      }
+    } catch (error) {
+      console.error("Error uploading file: ", error);
+    }
+
+    // AI Documents
     if (!name) {
       console.log("name =>  ", name);
       console.log("description =>  ", description);
@@ -27,19 +60,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
 
-    console.log("ogi123");
-    console.log(name, description, anweisungen);
-    console.log("ogi345");
-
     const document = await prisma.document.create({
       data: {
         name,
         description,
         content: anweisungen,
+        // fileUrl: rest.data?.fullPath,
       },
     });
-
-    console.log("ogi567");
 
     return NextResponse.json(document, { status: 200 });
   } catch (error) {

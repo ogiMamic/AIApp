@@ -1,6 +1,6 @@
 "use client";
-
-import { useState } from "react";
+import { useEffect } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import * as z from "zod";
@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { MessageSquare, Loader } from "lucide-react";
 import { formSchema } from "./constants";
 import { useChatHistoryStore } from "@/store/chatHistory/useChatHistoryStore";
+import { start } from "repl";
 
 interface IMessage {
   role: "user" | "bot";
@@ -33,7 +34,15 @@ interface IMessage {
 }
 
 const ConversationPage = () => {
-  const { histories, addHistory, removeHistory } = useChatHistoryStore();
+  const {
+    histories,
+    currentChatId,
+    selectedChatId,
+    startNewChat,
+    addMessageToCurrentChat,
+    selectChat,
+    removeHistory,
+  } = useChatHistoryStore();
   const router = useRouter();
   const [messages, setMessages] = useState<IMessage[]>([]);
   const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
@@ -50,12 +59,19 @@ const ConversationPage = () => {
   const { handleSubmit, formState } = methods;
   const isLoading = formState.isSubmitting;
 
-  const onSubmitSuccessful = (response) => {
-    const updatedMessages = [...messages, userMessage, response.data];
-    setMessages(updatedMessages);
-    addHistory(updatedMessages); // Save to history when a chat completion happens
-    methods.reset();
-  };
+  useEffect(() => {
+    // Start a new chat when the component mounts
+    startNewChat();
+  }, [startNewChat]);
+
+  useEffect(() => {
+    if (selectedChatId) {
+      const selectedChat = histories.find(
+        (history) => history.id === selectedChatId
+      );
+      setMessages(selectedChat ? selectedChat.messages : []);
+    }
+  }, [selectedChatId, histories]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -69,9 +85,12 @@ const ConversationPage = () => {
         messages: newMessages,
       });
 
-      const updatedMessages = [...newMessages, response.data];
+      const botMessage: IMessage = response.data;
+      const updatedMessages = [...newMessages, botMessage];
       setMessages(updatedMessages);
-      addHistory(updatedMessages); // Save to history when a chat completion happens
+      addMessageToCurrentChat(userMessage); // Save to history when a chat completion happens
+      addMessageToCurrentChat(botMessage); // Save to history when a chat completion happens
+
       methods.reset();
     } catch (error: any) {
       console.log(error);
@@ -211,17 +230,17 @@ const ConversationPage = () => {
           <h3 className="text-lg p-2">Chat History</h3>
           <ul className="overflow-auto h-full">
             {histories.map((history, index) => (
-              <li key={index} className="p-2 hover:bg-gray-100 cursor-pointer">
-                <div
-                  onClick={() => {
-                    console.log(`View chat history ${index}`);
-                  }}
-                >
-                  {`Chat on ${new Date().toLocaleDateString()} #${index + 1}`}
-                </div>
+              <li
+                key={index}
+                className="p-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => selectChat(history.id)}
+              >
+                <div>{`Chat on ${new Date(
+                  parseInt(history.id)
+                ).toLocaleDateString()} #${index + 1}`}</div>
                 <button
                   className="text-red-500 text-xs"
-                  onClick={() => removeHistory(index)}
+                  onClick={() => removeHistory(history.id)}
                 >
                   Delete
                 </button>

@@ -111,6 +111,10 @@ const ListKnowledges = ({
       formData.append("anweisungen", "");
       formData.append("parentId", parentId || "");
 
+      // Convert file to base64 and await upload to supabase storage
+      var base64 = await getBase64(file);
+      formData.append("base64", base64 as string);
+
       try {
         const response = await axios.post("/api/knowledge", formData, {
           headers: {
@@ -127,6 +131,20 @@ const ListKnowledges = ({
         toast.error("Failed to upload document");
       }
     }
+  };
+
+  const getBase64 = (file: File) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        resolve(base64);
+      };
+      reader.onerror = (error) => {
+        reject(error);
+      };
+    });
   };
 
   const handleCreateFolder = () => {
