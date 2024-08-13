@@ -1,6 +1,9 @@
 import { auth } from "@clerk/nextjs";
 import { NextResponse } from "next/server";
-import { OpenAI, ChatCompletionRequestMessage } from "openai";
+import OpenAI from "openai"; // Default import for OpenAI
+
+// Import the type from 'openai' package
+import { ChatCompletionRequestMessage } from "openai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, // This is also the default, can be omitted

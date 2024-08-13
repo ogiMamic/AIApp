@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { NextApiRequest, NextApiResponse } from "next";
-import { IncomingForm } from "formidable";
 import OpenAI from "openai";
-import fs from "fs";
-import path from "path";
 import { auth } from "@clerk/nextjs";
 
 const openai = new OpenAI({
@@ -25,7 +22,7 @@ export async function POST(req: Request) {
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4", // Updated model name
       messages: [
         {
           role: "system",
