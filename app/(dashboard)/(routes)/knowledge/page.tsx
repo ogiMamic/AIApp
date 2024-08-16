@@ -35,8 +35,8 @@ const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
 };
 
 const KnowledgePage = () => {
-  const [open, setOpen] = React.useState(false);
-  const [value, setValue] = React.useState("");
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
   const { selectedItems, clearSelectedItems } = useCustomStore();
   const { knowledges, selected, updateKnowledge, addKnowledge, setKnowledges } =
     useKnowledgesStore();
@@ -177,7 +177,7 @@ const KnowledgePage = () => {
     }
   };
 
-  const handleUploadDocument = async (file: File) => {
+  const handleUploadDocument = (file: File) => {
     if (!file) {
       console.error("No file provided");
       return;
@@ -185,43 +185,42 @@ const KnowledgePage = () => {
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("name", file.name || ""); // Ensure there's a default value if `file.name` is not available
-    formData.append("description", description); // Set this as needed
-    formData.append("anweisungen", anweisungen); // Set this as needed
+    formData.append("name", file.name);
+    formData.append("description", description);
+    formData.append("anweisungen", anweisungen);
 
     console.log("Sending formData:", file);
 
-    //convert file to base64
-    const fileReader = new FileReader();
-    fileReader.readAsDataURL(file);
-    fileReader.onloadend = function () {
-      const base64 = fileReader.result as string;
-      console.log("base64", base64);
+    // Convert file to base64
+    getBase64(file, (base64) => {
       formData.append("base64", base64);
-    };
-    return;
-    try {
-      console.log("Sending formData:", formData);
-      const response = await axios.post("/api/knowledge", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
 
-      const savedDocument = response.data;
-      setTableData((prevData) => [...prevData, savedDocument]);
-      addKnowledge(savedDocument);
-    } catch (error: any) {
-      console.error("Failed to upload document", error);
-
-      if (error.response) {
-        console.error("Server Response:", error.response.data);
-      } else if (error.request) {
-        console.error("Request made but no response received", error.request);
-      } else {
-        console.error("Error setting up request", error.message);
+      try {
+        axios
+          .post("/api/knowledge", formData, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          })
+          .then((response) => {
+            const savedDocument = response.data;
+            setTableData((prevData) => [...prevData, savedDocument]);
+            addKnowledge(savedDocument);
+          })
+          .catch((error) => {
+            console.error("Failed to upload document", error);
+          });
+      } catch (error) {
+        console.error("Error during upload:", error);
       }
-    }
+    });
+  };
+
+  const getBase64 = (file: File, callback: (base64: string) => void) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => callback(reader.result as string);
+    reader.onerror = (error) => console.error("Error reading file:", error);
   };
 
   const handleDeleteDocument = async (id: string) => {
@@ -252,8 +251,6 @@ const KnowledgePage = () => {
       }
     }
   };
-
-  // Table column definitions and render function continue...
 
   const columnsWithActions = [
     {

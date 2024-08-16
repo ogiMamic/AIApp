@@ -1,6 +1,6 @@
 "use client";
-import { useEffect } from "react";
-import { use, useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import * as z from "zod";
@@ -26,7 +26,6 @@ import { cn } from "@/lib/utils";
 import { MessageSquare, Loader } from "lucide-react";
 import { formSchema } from "./constants";
 import { useChatHistoryStore } from "@/store/chatHistory/useChatHistoryStore";
-import { start } from "repl";
 
 interface IMessage {
   role: "user" | "bot";
@@ -43,6 +42,7 @@ const ConversationPage = () => {
     selectChat,
     removeHistory,
   } = useChatHistoryStore();
+
   const router = useRouter();
   const [messages, setMessages] = useState<IMessage[]>([]);
   const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
@@ -100,8 +100,8 @@ const ConversationPage = () => {
   };
 
   return (
-    <>
-      <div>
+    <div className="flex">
+      <div className="flex-grow">
         <Heading
           title="Gespräch"
           description="Unser fortschrittlichstes Konversationsmodell."
@@ -130,19 +130,11 @@ const ConversationPage = () => {
                   </FormItem>
                 )}
               />
-              <div className="col-span-12 lg:col-span-2 flex space-x-2">
-                <Button className="h-full" disabled={isLoading}>
-                  Senden
-                </Button>
-              </div>
-              <div className="col-span-12 lg:col-span-6">
-                <p className="text-sm font-semibold mb-1">
-                  Wählen Sie ein Wissen:
-                </p>
+              <div className="col-span-12 lg:col-span-10 flex space-x-2 items-end">
                 <FormField
                   name="knowledge"
                   render={({ field }) => (
-                    <FormItem className="col-span-12 lg:col-span-6">
+                    <FormItem className="flex-1">
                       <FormControl className="m-0 p-0">
                         <Select onValueChange={setSelectedKnowledge} {...field}>
                           <SelectTrigger className="mt-1 w-full">
@@ -163,16 +155,11 @@ const ConversationPage = () => {
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <div className="col-span-12 lg:col-span-6">
-                <p className="text-sm font-semibold mb-1">
-                  Wählen Sie einen Agenten:
-                </p>
                 <FormField
                   name="agent"
                   render={({ field }) => (
-                    <FormItem className="col-span-12 lg:col-span-6">
+                    <FormItem className="flex-1">
                       <FormControl className="m-0 p-0">
                         <Select onValueChange={setSelectedAgent} {...field}>
                           <SelectTrigger className="mt-1 w-full">
@@ -190,6 +177,10 @@ const ConversationPage = () => {
                     </FormItem>
                   )}
                 />
+
+                <Button className="flex-none" disabled={isLoading}>
+                  Generieren
+                </Button>
               </div>
             </form>
           </FormProvider>
@@ -221,35 +212,32 @@ const ConversationPage = () => {
           </div>
         </div>
       </div>
-      <div className="flex">
-        <div className="flex-grow">
-          {/* Main chat interface */}
-          {/* Existing JSX */}
-        </div>
-        <div className="w-96 border-l">
-          <h3 className="text-lg p-2">Chat History</h3>
-          <ul className="overflow-auto h-full">
-            {histories.map((history, index) => (
-              <li
-                key={index}
-                className="p-2 hover:bg-gray-100 cursor-pointer"
-                onClick={() => selectChat(history.id)}
+      <div className="w-96 border-l p-4">
+        <h3 className="text-lg p-2">Chat History</h3>
+        <ul className="overflow-auto h-full">
+          {histories.map((history, index) => (
+            <li
+              key={index}
+              className="p-2 hover:bg-gray-100 cursor-pointer"
+              onClick={() => selectChat(history.id)}
+            >
+              <div>{`Chat on ${new Date(
+                parseInt(history.id)
+              ).toLocaleDateString()} #${index + 1}`}</div>
+              <button
+                className="text-red-500 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent triggering the selectChat on button click
+                  removeHistory(history.id);
+                }}
               >
-                <div>{`Chat on ${new Date(
-                  parseInt(history.id)
-                ).toLocaleDateString()} #${index + 1}`}</div>
-                <button
-                  className="text-red-500 text-xs"
-                  onClick={() => removeHistory(history.id)}
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
-    </>
+    </div>
   );
 };
 
