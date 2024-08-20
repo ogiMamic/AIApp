@@ -60,11 +60,7 @@ const ConversationPage = () => {
   const isLoading = formState.isSubmitting;
 
   useEffect(() => {
-    // Start a new chat when the component mounts
-    startNewChat();
-  }, [startNewChat]);
-
-  useEffect(() => {
+    // Load messages for the selected chat
     if (selectedChatId) {
       const selectedChat = histories.find(
         (history) => history.id === selectedChatId
@@ -97,6 +93,13 @@ const ConversationPage = () => {
     } finally {
       router.refresh();
     }
+  };
+
+  const handleNewChat = () => {
+    startNewChat();
+    const newChatId = `${new Date().getTime()}`; // Generate a new ID for the chat session
+    selectChat(newChatId);
+    setMessages([]);
   };
 
   return (
@@ -213,12 +216,20 @@ const ConversationPage = () => {
         </div>
       </div>
       <div className="w-96 border-l p-4">
-        <h3 className="text-lg p-2">Chat History</h3>
+        <h3 className="text-lg p-2 flex justify-between items-center">
+          <span>Chat History</span>
+          <Button size="sm" onClick={handleNewChat}>
+            Neues Gespräch
+          </Button>
+        </h3>
         <ul className="overflow-auto h-full">
           {histories.map((history, index) => (
             <li
               key={index}
-              className="p-2 hover:bg-gray-100 cursor-pointer"
+              className={cn(
+                "p-2 cursor-pointer hover:bg-gray-100 rounded-md",
+                selectedChatId === history.id ? "bg-blue-100 rounded-md" : "" // Apply a different background color if this is the selected chat
+              )}
               onClick={() => selectChat(history.id)}
             >
               <div>{`Chat on ${new Date(
