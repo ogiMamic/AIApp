@@ -25,3 +25,12 @@ model Document {
   updatedAt   DateTime @updatedAt
 }
 
+model Agent {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  instructions String?
+  openaiAssistantId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

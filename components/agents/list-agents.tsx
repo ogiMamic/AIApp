@@ -30,7 +30,9 @@ const ListAgents = () => {
   };
 
   return (
-    <div className="pt-12 flex-col lg:col-span-3 bg-gray-50 p-0">
+    <div className="pt-6 pl-4 pr-4 flex-col lg:col-span-3 bg-gray-50 p-0">
+      <h2 className="text-1xl font-bold pl-3 divide-y pb-4">Agents</h2>
+
       <ul role="list" className="divide-y divide-gray-100">
         {agents.map((agent) => (
           <ListItem key={agent.id} agent={agent} />
@@ -85,9 +87,9 @@ const ListAgents = () => {
           </div>
         </li> */}
       </ul>
-      <div className="p-4 mt-auto">
+      <div className="p-0 mt-4">
         <Button
-          className="p-6 w-full"
+          className="p-4 w-full text-[#0F3443] bg-[#38ef7d] hover:bg-[#06b348]"
           disabled={isLoading}
           onClick={createAgent}
         >

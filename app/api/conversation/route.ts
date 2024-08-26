@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", // Updated model name
+      model: "gpt-4o", // Updated model name
       messages: [
         {
           role: "system",

@@ -67,6 +67,7 @@ export const useAgentsStore = create<State & Actions>()(
           }));
         },
         selectAgent: (agent: SynapseAgent) => {
+          console.log("Selecting agent: ", agent); // Dodaj ovu liniju
           set((state) => ({
             selected: agent,
           }));

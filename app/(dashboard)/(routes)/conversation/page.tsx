@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
+import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore"; // Import Knowledges Store
 import { useAgentsStore } from "@/store/agentsStore/useAgentsStore";
 import { BotAvatar } from "@/components/bot-avatar";
 import { Empty } from "@/components/empty";
@@ -25,6 +25,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 import { MessageSquare, Loader } from "lucide-react";
 import { formSchema } from "./constants";
+import { supabase } from "@/lib/supabaseClient"; // Importovanje Supabase klijenta
 import { useChatHistoryStore } from "@/store/chatHistory/useChatHistoryStore";
 
 interface IMessage {
@@ -35,7 +36,6 @@ interface IMessage {
 const ConversationPage = () => {
   const {
     histories,
-    currentChatId,
     selectedChatId,
     startNewChat,
     addMessageToCurrentChat,
@@ -45,12 +45,12 @@ const ConversationPage = () => {
 
   const router = useRouter();
   const [messages, setMessages] = useState<IMessage[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const { agents, addAgent } = useAgentsStore();
+  const { knowledges, addKnowledge } = useKnowledgesStore(); // Use Knowledges Store
   const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
     null
   );
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const { knowledges } = useKnowledgesStore();
-  const { agents } = useAgentsStore();
 
   const methods = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -60,14 +60,34 @@ const ConversationPage = () => {
   const isLoading = formState.isSubmitting;
 
   useEffect(() => {
-    // Load messages for the selected chat
-    if (selectedChatId) {
-      const selectedChat = histories.find(
-        (history) => history.id === selectedChatId
-      );
-      setMessages(selectedChat ? selectedChat.messages : []);
-    }
-  }, [selectedChatId, histories]);
+    const loadAgents = async () => {
+      const { data: agents, error } = await supabase.from("agents").select("*");
+
+      if (error) {
+        console.error("Error fetching agents from Supabase:", error.message);
+      } else {
+        agents.forEach((agent) => addAgent(agent));
+      }
+    };
+
+    const loadKnowledges = async () => {
+      const { data: knowledges, error } = await supabase
+        .from("knowledges")
+        .select("*");
+
+      if (error) {
+        console.error(
+          "Error fetching knowledges from Supabase:",
+          error.message
+        );
+      } else {
+        knowledges.forEach((knowledge) => addKnowledge(knowledge));
+      }
+    };
+
+    loadAgents(); // Učitavanje agenata prilikom mount-a komponente
+    loadKnowledges(); // Učitavanje "knowledges" prilikom mount-a komponente
+  }, [addAgent, addKnowledge]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -75,17 +95,31 @@ const ConversationPage = () => {
         role: "user",
         content: values.prompt,
       };
+
       const newMessages = [...messages, userMessage];
+
+      const selectedAgentSpec = agents.find(
+        (agent) => agent.id === selectedAgent
+      );
 
       const response = await axios.post("/api/conversation", {
         messages: newMessages,
+        agent: {
+          id: selectedAgent, // ID izabranog agenta iz dropdown-a
+          name: selectedAgentSpec?.name,
+          description: selectedAgentSpec?.description,
+          instructions: selectedAgentSpec?.instructions,
+          openai_assistant_id: selectedAgentSpec?.openai_assistant_id,
+        },
+        knowledge_id: selectedKnowledge, // Dodavanje ID-a izabranog znanja
       });
 
       const botMessage: IMessage = response.data;
       const updatedMessages = [...newMessages, botMessage];
       setMessages(updatedMessages);
-      addMessageToCurrentChat(userMessage); // Save to history when a chat completion happens
-      addMessageToCurrentChat(botMessage); // Save to history when a chat completion happens
+
+      addMessageToCurrentChat(userMessage); // Save to history
+      addMessageToCurrentChat(botMessage); // Save to history
 
       methods.reset();
     } catch (error: any) {
@@ -97,7 +131,7 @@ const ConversationPage = () => {
 
   const handleNewChat = () => {
     startNewChat();
-    const newChatId = `${new Date().getTime()}`; // Generate a new ID for the chat session
+    const newChatId = `${new Date().getTime()}`;
     selectChat(newChatId);
     setMessages([]);
   };
@@ -106,8 +140,8 @@ const ConversationPage = () => {
     <div className="flex">
       <div className="flex-grow">
         <Heading
-          title="Gespräch"
-          description="Unser fortschrittlichstes Konversationsmodell."
+          title="Conversation"
+          description="Our most advanced conversation model."
           icon={MessageSquare}
           iconColor="text-violet-500"
           bgColor="bg-violet-500/10"
@@ -126,7 +160,7 @@ const ConversationPage = () => {
                       <Input
                         className="border-0 outline-none focus-visible:ring-0 focus-visible:ring-transparent"
                         disabled={isLoading}
-                        placeholder="Wie berechne ich den Radius eines Kreises?"
+                        placeholder="Enter your question here..."
                         {...field}
                       />
                     </FormControl>
@@ -180,9 +214,11 @@ const ConversationPage = () => {
                     </FormItem>
                   )}
                 />
-
-                <Button className="flex-none" disabled={isLoading}>
-                  Generieren
+                <Button
+                  className="flex-none text-[#0F3443] bg-[#38ef7d]  hover:bg-[#06b348]"
+                  disabled={isLoading}
+                >
+                  Generate
                 </Button>
               </div>
             </form>
@@ -194,7 +230,7 @@ const ConversationPage = () => {
               </div>
             )}
             {messages.length === 0 && !isLoading && (
-              <Empty label="Kein Gespräch begonnen." />
+              <Empty label="No conversation started." />
             )}
             <div className="flex flex-col-reverse gap-y-4">
               {messages.map((message, index) => (
@@ -204,7 +240,7 @@ const ConversationPage = () => {
                     "p-8 w-full flex items-start gap-x-8 rounded-lg",
                     message.role === "user"
                       ? "bg-white border border-black/10"
-                      : "bg-muted"
+                      : "bg-[#d8ffe6]"
                   )}
                 >
                   {message.role === "user" ? <UserAvatar /> : <BotAvatar />}
@@ -218,8 +254,12 @@ const ConversationPage = () => {
       <div className="w-96 border-l p-4">
         <h3 className="text-lg p-2 flex justify-between items-center">
           <span>Chat History</span>
-          <Button size="sm" onClick={handleNewChat}>
-            Neues Gespräch
+          <Button
+            size="sm"
+            className="text-[#0F3443] bg-[#38ef7d]  hover:bg-[#06b348]"
+            onClick={handleNewChat}
+          >
+            New Chat
           </Button>
         </h3>
         <ul className="overflow-auto h-full">
@@ -228,7 +268,7 @@ const ConversationPage = () => {
               key={index}
               className={cn(
                 "p-2 cursor-pointer hover:bg-gray-100 rounded-md",
-                selectedChatId === history.id ? "bg-blue-100 rounded-md" : "" // Apply a different background color if this is the selected chat
+                selectedChatId === history.id ? "bg-[#d8ffe6]" : ""
               )}
               onClick={() => selectChat(history.id)}
             >
@@ -238,7 +278,7 @@ const ConversationPage = () => {
               <button
                 className="text-red-500 text-xs"
                 onClick={(e) => {
-                  e.stopPropagation(); // Prevent triggering the selectChat on button click
+                  e.stopPropagation();
                   removeHistory(history.id);
                 }}
               >
