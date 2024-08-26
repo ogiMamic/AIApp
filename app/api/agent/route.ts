@@ -4,20 +4,14 @@ import OpenAI from "openai";
 
 export async function POST(request: Request) {
   try {
-    const { name, instructions, tools, tool_resources, model } =
+    const content: { name; instructions; tools; tool_resources; model } =
       await request.json();
 
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const assistant = await openai.beta.assistants.create({
-      name,
-      instructions,
-      tools,
-      tool_resources,
-      model,
-    });
+    const assistant = await openai.beta.assistants.create(content);
 
     return NextResponse.json({ success: true, assistant });
   } catch (error) {
