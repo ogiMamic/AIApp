@@ -59,8 +59,6 @@ import {
 import React from "react";
 import { OpenAI } from "openai";
 import { Assistant } from "openai/resources/beta/assistants/assistants.mjs";
-import { useAtom } from "jotai";
-import { assistantAtom, fileAtom, messagesAtom } from "@/atom";
 
 const AgentPage = () => {
   const [selectedKnowledge, setSelectedKnowledge] = React.useState(null);
@@ -213,6 +211,8 @@ const AgentPage = () => {
           openai_assistant_id: response.data.assistant.id,
           instructions: "",
         });
+
+        console.log("Assistand ID:", response.data.assistant.id);
 
         // Resetujte state ili obavite dodatne aktivnosti po potrebi
         setName("");

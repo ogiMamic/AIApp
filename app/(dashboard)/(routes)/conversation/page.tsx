@@ -45,7 +45,7 @@ const ConversationPage = () => {
 
   const router = useRouter();
   const [messages, setMessages] = useState<IMessage[]>([]);
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<any | null>(null); // Pohranjujemo cijeli objekt agenta
   const { agents, addAgent } = useAgentsStore();
   const { knowledges, addKnowledge } = useKnowledgesStore(); // Use Knowledges Store
   const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
@@ -56,8 +56,11 @@ const ConversationPage = () => {
     resolver: zodResolver(formSchema),
   });
 
-  const { handleSubmit, formState } = methods;
-  const isLoading = formState.isSubmitting;
+  const {
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = methods;
+  const isLoading = isSubmitting;
 
   useEffect(() => {
     const loadAgents = async () => {
@@ -66,6 +69,7 @@ const ConversationPage = () => {
       if (error) {
         console.error("Error fetching agents from Supabase:", error.message);
       } else {
+        console.log("Loaded agents from Supabase: ", agents);
         agents.forEach((agent) => addAgent(agent));
       }
     };
@@ -81,6 +85,7 @@ const ConversationPage = () => {
           error.message
         );
       } else {
+        console.log("Loaded knowledges from Supabase: ", knowledges);
         knowledges.forEach((knowledge) => addKnowledge(knowledge));
       }
     };
@@ -90,6 +95,7 @@ const ConversationPage = () => {
   }, [addAgent, addKnowledge]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    console.log("Form submitted!"); // Provjera da li funkcija uopće radi
     try {
       const userMessage: IMessage = {
         role: "user",
@@ -98,28 +104,55 @@ const ConversationPage = () => {
 
       const newMessages = [...messages, userMessage];
 
-      const selectedAgentSpec = agents.find(
-        (agent) => agent.id === selectedAgent
-      );
+      // Provjera da li je niz 'agents' inicijaliziran i sadrži elemente
+      if (!agents || agents.length === 0) {
+        console.error("Agents array is empty or undefined.");
+        return;
+      } else {
+        console.log("Agents array: ", agents); // Logovanje agenata
+      }
 
+      // Provjera da li je 'selectedAgent' ispravno definisan
+      console.log("Selected Agent: ", selectedAgent); // Provjerite vrijednost selectedAgent
+
+      if (!selectedAgent || !selectedAgent.openai_assistant_id) {
+        console.error("Agent or Assistant ID is missing");
+        return;
+      }
+
+      console.log("Starting API request with data: ", {
+        messages: newMessages,
+        agent: {
+          id: selectedAgent.id,
+          name: selectedAgent.name,
+          description: selectedAgent.description,
+          instructions: selectedAgent.instructions,
+          openai_assistant_id: selectedAgent.openai_assistant_id,
+        },
+        knowledge_id: selectedKnowledge,
+      });
+
+      // API poziv s podacima
       const response = await axios.post("/api/conversation", {
         messages: newMessages,
         agent: {
-          id: selectedAgent, // ID izabranog agenta iz dropdown-a
-          name: selectedAgentSpec?.name,
-          description: selectedAgentSpec?.description,
-          instructions: selectedAgentSpec?.instructions,
-          openai_assistant_id: selectedAgentSpec?.openai_assistant_id,
+          id: selectedAgent.id,
+          name: selectedAgent.name,
+          description: selectedAgent.description,
+          instructions: selectedAgent.instructions,
+          openai_assistant_id: selectedAgent.openai_assistant_id, // Korištenje ispravnog Assistant ID-a
         },
         knowledge_id: selectedKnowledge, // Dodavanje ID-a izabranog znanja
       });
+
+      console.log("Response from API: ", response.data); // Provjerite odgovor API-ja
 
       const botMessage: IMessage = response.data;
       const updatedMessages = [...newMessages, botMessage];
       setMessages(updatedMessages);
 
-      addMessageToCurrentChat(userMessage); // Save to history
-      addMessageToCurrentChat(botMessage); // Save to history
+      addMessageToCurrentChat(userMessage); // Spremanje u povijest
+      addMessageToCurrentChat(botMessage); // Spremanje u povijest
 
       methods.reset();
     } catch (error: any) {
@@ -128,6 +161,8 @@ const ConversationPage = () => {
       router.refresh();
     }
   };
+
+  console.log("Form errors:", errors);
 
   const handleNewChat = () => {
     startNewChat();
@@ -198,7 +233,14 @@ const ConversationPage = () => {
                   render={({ field }) => (
                     <FormItem className="flex-1">
                       <FormControl className="m-0 p-0">
-                        <Select onValueChange={setSelectedAgent} {...field}>
+                        <Select
+                          onValueChange={(value) =>
+                            setSelectedAgent(
+                              agents.find((agent) => agent.id === value)
+                            )
+                          }
+                          {...field}
+                        >
                           <SelectTrigger className="mt-1 w-full">
                             <SelectValue placeholder="Select an agent..." />
                           </SelectTrigger>
@@ -215,7 +257,8 @@ const ConversationPage = () => {
                   )}
                 />
                 <Button
-                  className="flex-none text-[#0F3443] bg-[#38ef7d]  hover:bg-[#06b348]"
+                  type="submit"
+                  className="flex-none text-[#0F3443] bg-[#38ef7d] hover:bg-[#06b348]"
                   disabled={isLoading}
                 >
                   Generate
@@ -256,7 +299,7 @@ const ConversationPage = () => {
           <span>Chat History</span>
           <Button
             size="sm"
-            className="text-[#0F3443] bg-[#38ef7d]  hover:bg-[#06b348]"
+            className="text-[#0F3443] bg-[#38ef7d] hover:bg-[#06b348]"
             onClick={handleNewChat}
           >
             New Chat
