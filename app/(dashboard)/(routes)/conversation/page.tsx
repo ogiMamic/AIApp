@@ -27,6 +27,7 @@ import { MessageSquare, Loader } from "lucide-react";
 import { formSchema } from "./constants";
 import { supabase } from "@/lib/supabaseClient"; // Importovanje Supabase klijenta
 import { useChatHistoryStore } from "@/store/chatHistory/useChatHistoryStore";
+import { threadId } from "worker_threads";
 
 interface IMessage {
   role: "user" | "bot";
@@ -51,6 +52,7 @@ const ConversationPage = () => {
   const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
     null
   );
+  const [threadId, setThreadId] = useState<string | null>(null);
 
   const methods = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -103,7 +105,7 @@ const ConversationPage = () => {
       };
 
       const newMessages = [...messages, userMessage];
-
+      console.log("New messages:", newMessages);
       // Provjera da li je niz 'agents' inicijaliziran i sadrži elemente
       if (!agents || agents.length === 0) {
         console.error("Agents array is empty or undefined.");
@@ -142,12 +144,18 @@ const ConversationPage = () => {
           instructions: selectedAgent.instructions,
           openai_assistant_id: selectedAgent.openai_assistant_id, // Korištenje ispravnog Assistant ID-a
         },
+        threadId: threadId, // Dodavanje ID-a izabranog chata
         knowledge_id: selectedKnowledge, // Dodavanje ID-a izabranog znanja
       });
 
-      console.log("Response from API: ", response.data); // Provjerite odgovor API-ja
+      console.log("Response from API:", response.data.conversation); // Već imaš ovo
+      if (response.data.threadId) {
+        setThreadId(response.data.threadId);
+      }
+      const botMessage: IMessage =
+        response.data.conversation[response.data.conversation.length - 1]; // Uzmi posljednju poruku od bota
+      console.log("Bot message:", botMessage); // Provjeri šta tačno sadrži 'botMessage'
 
-      const botMessage: IMessage = response.data;
       const updatedMessages = [...newMessages, botMessage];
       setMessages(updatedMessages);
 

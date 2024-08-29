@@ -99,6 +99,7 @@ const AgentPage = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [anweisungen, setAnweisungen] = useState("");
+  const [selectedModel, setSelectedModel] = useState("gpt-4");
 
   const [messages, setMessages] = useState<
     CreateChatCompletionRequestMessage[]
@@ -170,21 +171,36 @@ const AgentPage = () => {
 
   const handleSave = async () => {
     if (selected) {
-      const response = await axios.post("/api/agent", {
-        name: selected.name,
-        description: selected.description,
-        instructions: selected.anweisungen,
+      // Provera koje podatke šaljete na server
+      console.log("Sending data to API:", {
+        id: selected.openai_assistant_id,
+        name: name,
+        description: description,
+        instructions: anweisungen,
+        model: "gpt-4", // Proverite da li je model ispravno postavljen
       });
-      if (response.data.success) {
-        updateAgent({
-          ...selected,
-          name,
-          description,
-          anweisungen,
-          openai_assistant_id: response.data.assistant.id,
+      try {
+        const response = await axios.post("/api/agent", {
+          id: selected.openai_assistant_id,
+          name: name,
+          description: description,
+          instructions: anweisungen,
+          model: "gpt-4", // Ovde se prosleđuje model
         });
 
-        router.refresh();
+        if (response.data.success) {
+          updateAgent({
+            ...selected,
+            name,
+            description,
+            anweisungen,
+            openai_assistant_id: response.data.assistant.id,
+          });
+
+          router.refresh();
+        }
+      } catch (error) {
+        console.error("Error in handleSave:", error);
       }
     }
   };
@@ -194,7 +210,7 @@ const AgentPage = () => {
       const response = await axios.post("/api/agent", {
         name,
         instructions: anweisungen,
-        model: "gpt-4",
+        model: "selectedModel",
         // Include other necessary properties based on your requirements
       });
 
@@ -386,6 +402,23 @@ const AgentPage = () => {
                               {knowledge.name}
                             </SelectItem>
                           ))}
+                        </SelectContent>
+                      </Select>
+                      <label
+                        htmlFor="modelSelect"
+                        className="mt-8 block text-sm font-medium text-gray-700"
+                      >
+                        Wähle ein Modell
+                      </label>
+                      <Select onValueChange={setSelectedModel}>
+                        <SelectTrigger className="mt-1 w-full">
+                          <SelectValue placeholder="Select a model..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gpt-3.5-turbo">
+                            GPT-3.5 Turbo
+                          </SelectItem>
+                          <SelectItem value="gpt-4">GPT-4</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
