@@ -11,6 +11,8 @@ const ListAgents = () => {
   const [coll, setColl] = useState<SynapseAgent[]>([]);
   const { addAgent, agents } = useAgentsStore();
 
+  const openAIAgents = agents.filter((agent) => agent.openai_assistant_id);
+
   const createAgent = async () => {
     setIsLoading(true);
     //TODO: Implement create agent
@@ -34,7 +36,7 @@ const ListAgents = () => {
       <h2 className="text-1xl font-bold pl-3 divide-y pb-4">Agents</h2>
 
       <ul role="list" className="divide-y divide-gray-100">
-        {agents.map((agent) => (
+        {openAIAgents.map((agent) => (
           <ListItem key={agent.id} agent={agent} />
         ))}
 

@@ -27,12 +27,7 @@ import { MessageSquare, Loader } from "lucide-react";
 import { formSchema } from "./constants";
 import { supabase } from "@/lib/supabaseClient"; // Importovanje Supabase klijenta
 import { useChatHistoryStore } from "@/store/chatHistory/useChatHistoryStore";
-import { threadId } from "worker_threads";
-
-interface IMessage {
-  role: "user" | "bot";
-  content: string;
-}
+import { IMessage } from "@/lib/interfaces/IMessage";
 
 const ConversationPage = () => {
   const {
@@ -42,6 +37,7 @@ const ConversationPage = () => {
     addMessageToCurrentChat,
     selectChat,
     removeHistory,
+    fetchHistories,
   } = useChatHistoryStore();
 
   const router = useRouter();
@@ -65,40 +61,51 @@ const ConversationPage = () => {
   const isLoading = isSubmitting;
 
   useEffect(() => {
-    const loadAgents = async () => {
-      const { data: agents, error } = await supabase.from("agents").select("*");
+    const loadInitialData = async () => {
+      try {
+        // Učitavanje agenata
+        const { data: agents, error: agentError } = await supabase
+          .from("agents")
+          .select("*");
+        if (agentError) {
+          console.error(
+            "Error fetching agents from Supabase:",
+            agentError.message
+          );
+        } else {
+          agents.forEach((agent) => addAgent(agent));
+        }
 
-      if (error) {
-        console.error("Error fetching agents from Supabase:", error.message);
-      } else {
-        console.log("Loaded agents from Supabase: ", agents);
-        agents.forEach((agent) => addAgent(agent));
+        // Učitavanje knowledges
+        const { data: knowledges, error: knowledgeError } = await supabase
+          .from("knowledges")
+          .select("*");
+        if (knowledgeError) {
+          console.error(
+            "Error fetching knowledges from Supabase:",
+            knowledgeError.message
+          );
+        } else {
+          knowledges.forEach((knowledge) => addKnowledge(knowledge));
+        }
+
+        // Učitavanje istorije chatova (thread-ova)
+        await fetchHistories(); // Učitavanje svih istorija iz Supabase
+      } catch (error) {
+        console.error("Error loading initial data:", error);
       }
     };
 
-    const loadKnowledges = async () => {
-      const { data: knowledges, error } = await supabase
-        .from("knowledges")
-        .select("*");
-
-      if (error) {
-        console.error(
-          "Error fetching knowledges from Supabase:",
-          error.message
-        );
-      } else {
-        console.log("Loaded knowledges from Supabase: ", knowledges);
-        knowledges.forEach((knowledge) => addKnowledge(knowledge));
-      }
-    };
-
-    loadAgents(); // Učitavanje agenata prilikom mount-a komponente
-    loadKnowledges(); // Učitavanje "knowledges" prilikom mount-a komponente
-  }, [addAgent, addKnowledge]);
+    loadInitialData();
+  }, [addAgent, addKnowledge, fetchHistories]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     console.log("Form submitted!"); // Provjera da li funkcija uopće radi
     try {
+      if (!threadId) {
+        handleNewChat();
+      }
+
       const userMessage: IMessage = {
         role: "user",
         content: values.prompt,
@@ -177,6 +184,7 @@ const ConversationPage = () => {
     const newChatId = `${new Date().getTime()}`;
     selectChat(newChatId);
     setMessages([]);
+    setThreadId(null);
   };
 
   return (
@@ -323,7 +331,7 @@ const ConversationPage = () => {
               )}
               onClick={() => selectChat(history.id)}
             >
-              <div>{`Chat on ${new Date(
+              <div>{`Thread on ${new Date(
                 parseInt(history.id)
               ).toLocaleDateString()} #${index + 1}`}</div>
               <button
