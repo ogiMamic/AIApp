@@ -8,6 +8,7 @@ import {
   AlertCircle,
   Check,
   ChevronsUpDown,
+  HelpCircle,
 } from "lucide-react";
 import { Heading } from "@/components/headling";
 import { useForm } from "react-hook-form";
@@ -60,8 +61,7 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabaseClient";
-import { decode } from "base64-arraybuffer";
+import { Card, CardFooter } from "@/components/ui/card";
 
 const AgentPage = () => {
   const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
@@ -109,6 +109,9 @@ const AgentPage = () => {
   const [uploadedFiles, setUploadedFiles] = useState<
     Array<{ id: string; name: string }>
   >([]);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -183,8 +186,6 @@ const AgentPage = () => {
 
     fetchKnowledges();
   }, [setKnowledges]);
-
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadAgentData = async () => {
@@ -441,7 +442,54 @@ const AgentPage = () => {
               bgColor="bg-blue-700/10"
             />
             <div className="px-4 lg:px-8">
-              <h5 className="text-lg font-semibold">{selected?.name}</h5>
+              <div className="flex items-center">
+                <h5 className="text-lg font-semibold">{selected?.name}</h5>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="ml-2"
+                  onClick={() => setIsHelpDialogOpen(true)}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Help Dialog */}
+              <Dialog
+                open={isHelpDialogOpen}
+                onOpenChange={setIsHelpDialogOpen}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>What is an Agent?</DialogTitle>
+                  </DialogHeader>
+                  <DialogDescription>
+                    An agent is an AI-powered entity designed to perform
+                    specific tasks or provide information based on its training
+                    and knowledge base. In this context, agents are created to
+                    assist with various processes and answer questions related
+                    to their specialized domain.
+                    <br />
+                    <br />
+                    The process of creating an agent involves:
+                    <ol className="list-decimal list-inside mt-2">
+                      <li>Defining the agent's name and description</li>
+                      <li>Providing instructions for the agent's behavior</li>
+                      <li>Selecting or uploading a knowledge base</li>
+                      <li>Creating custom actions for the agent</li>
+                      <li>Testing the agent's responses</li>
+                    </ol>
+                    These processes help in creating a tailored AI assistant
+                    that can efficiently handle specific tasks or provide
+                    accurate information in its designated area of expertise.
+                  </DialogDescription>
+                  <DialogFooter>
+                    <Button onClick={() => setIsHelpDialogOpen(false)}>
+                      Close
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               <div className="mt-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-y-8 lg:gap-x-16 flex-col">
                 <div className="flex-col lg:col-span-6">
@@ -647,11 +695,6 @@ const AgentPage = () => {
                       >
                         Upload
                       </Button>
-                      {/* {uploadedFileUrl && (
-                        <p className="mt-2 text-sm text-green-600">
-                          File uploaded. ID: {uploadedFileUrl}
-                        </p>
-                      )} */}
                     </div>
 
                     <UploadedFilesList />
