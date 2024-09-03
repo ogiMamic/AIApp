@@ -41,6 +41,8 @@ import { formSchema } from "./constants";
 import { useChatHistoryStore } from "@/store/chatHistory/useChatHistoryStore";
 import { IMessage } from "@/lib/interfaces/IMessage";
 
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+
 const ConversationPage = () => {
   const router = useRouter();
   const {
@@ -65,10 +67,12 @@ const ConversationPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleted, setShowDeleted] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [openAIFileId, setOpenAIFileId] = useState<string | null>(null);
+  const [openAIFileIds, setOpenAIFileIds] = useState<string[]>([]);
   const [vectorStoreId, setVectorStoreId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [agentError, setAgentError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,7 +149,13 @@ const ConversationPage = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      if (selectedFile.size > MAX_FILE_SIZE) {
+        setUploadError("File size exceeds the maximum limit of 100 MB");
+      } else {
+        setFile(selectedFile);
+        setUploadError(null);
+      }
     }
   };
 
@@ -153,6 +163,9 @@ const ConversationPage = () => {
     if (!file) return;
 
     setUploading(true);
+    setUploadProgress(0);
+    setUploadError(null);
+
     const formData = new FormData();
     formData.append("file", file);
 
@@ -161,11 +174,20 @@ const ConversationPage = () => {
         headers: {
           "Content-Type": "multipart/form-data",
         },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          setUploadProgress(percentCompleted);
+        },
       });
-      setOpenAIFileId(response.data.openAIFileId);
+      setOpenAIFileIds(response.data.openAIFileIds);
       setVectorStoreId(response.data.vectorStoreId);
     } catch (error) {
       console.error("Error uploading file:", error);
+      setUploadError(
+        error.response?.data?.error || "An error occurred during upload"
+      );
     } finally {
       setUploading(false);
     }
@@ -198,7 +220,7 @@ const ConversationPage = () => {
         return;
       }
 
-      if (file) {
+      if (file && openAIFileIds.length === 0) {
         await handleUpload();
       }
 
@@ -213,7 +235,7 @@ const ConversationPage = () => {
         },
         threadId: threadId,
         knowledge_id: selectedKnowledge,
-        openAIFileId: openAIFileId,
+        openAIFileIds: openAIFileIds,
         vectorStoreId: vectorStoreId,
         fileAnalysis: file ? true : false,
       });
@@ -241,6 +263,10 @@ const ConversationPage = () => {
       }
     } catch (error: any) {
       console.log(error);
+      setUploadError(
+        error.response?.data?.error ||
+          "An error occurred during the conversation"
+      );
     } finally {
       router.refresh();
     }
@@ -253,6 +279,7 @@ const ConversationPage = () => {
     setMessages([]);
     setThreadId(null);
     setVectorStoreId(null);
+    setOpenAIFileIds([]);
   };
 
   const toggleFavorite = async (id: string) => {
@@ -390,10 +417,15 @@ const ConversationPage = () => {
                     variant="outline"
                     size="icon"
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
                   >
-                    <Paperclip className="h-4 w-4" />
+                    {uploading ? (
+                      <Loader className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Paperclip className="h-4 w-4" />
+                    )}
                   </Button>
-                  <Button type="submit" disabled={isLoading}>
+                  <Button type="submit" disabled={isLoading || uploading}>
                     {isLoading ? (
                       <Loader className="h-4 w-4 animate-spin" />
                     ) : (
@@ -410,23 +442,23 @@ const ConversationPage = () => {
               onChange={handleFileChange}
             />
             {file && (
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <Paperclip className="h-4 w-4" />
-                <span>{file.name}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFile(null);
-                    if (fileInputRef.current) {
-                      fileInputRef.current.value = "";
-                    }
-                  }}
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
+              <div className="mt-2 text-sm text-gray-500">
+                <p>Selected file: {file.name}</p>
+                {uploading && (
+                  <div className="mt-1">
+                    <p>Uploading: {uploadProgress}%</p>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
+            {uploadError && (
+              <p className="mt-2 text-sm text-red-500">{uploadError}</p>
             )}
             <div className="space-y-4">
               {isLoading && (

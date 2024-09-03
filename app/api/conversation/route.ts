@@ -61,6 +61,7 @@ export async function POST(req: Request) {
     // Prepare run parameters
     const runParams: any = {
       assistant_id: assistantId,
+      model: "gpt-4-turbo-preview",
       tools: [{ type: "file_search" }],
     };
 

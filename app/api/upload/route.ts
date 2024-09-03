@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { supabase } from "@/lib/supabaseClient";
-import { decode } from "base64-arraybuffer";
-import { writeFile } from "fs/promises";
-import { join } from "path";
 import OpenAI from "openai";
 
 const prisma = new PrismaClient();
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const MAX_CHUNK_SIZE = 20 * 1024 * 1024; // 20 MB
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -19,198 +17,106 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const formData = await req.formData();
 
-    console.log("formData log start");
-    console.log(formData);
-    console.log("formData log end");
-
-    const name = formData.get("name") as string;
-    const description = formData.get("description") as string;
-    const anweisungen = formData.get("anweisungen") as string;
     const file = formData.get("file") as File;
-    const base64 = formData.get("base64") as string;
-    const knowledgeId = formData.get("knowledgeId") as string;
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
 
-    console.log("base64", base64);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const totalSize = buffer.length;
+    const chunks = Math.ceil(totalSize / MAX_CHUNK_SIZE);
 
-    let fileUrl = "";
-    let openAIFileId = null;
-    let vectorStoreId = null;
+    console.log(`File size: ${totalSize} bytes, Chunks: ${chunks}`);
 
-    if (file) {
+    const openAIFileIds = [];
+    for (let i = 0; i < chunks; i++) {
+      const start = i * MAX_CHUNK_SIZE;
+      const end = Math.min(start + MAX_CHUNK_SIZE, totalSize);
+      const chunkBuffer = buffer.slice(start, end);
+
       try {
-        const fileName = file.name;
-        const base641 = base64.split("base64,")[1];
-
-        const { data, error } = await supabase.storage
-          .from("AI Documents")
-          .upload(fileName, decode(base641), {
-            cacheControl: "3600",
-            contentType: file.type,
-            upsert: true,
-          });
-        if (error) {
-          console.error("Error uploading file to Supabase: ", error);
-        } else {
-          console.log("File uploaded successfully to Supabase: ", data);
-          fileUrl = data.path;
-        }
-
-        // Save file locally
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        const path = join(process.cwd(), "public", "uploads", file.name);
-        await writeFile(path, buffer);
-        console.log(`File saved locally to ${path}`);
-
-        // Upload file to OpenAI
+        console.log(`Uploading chunk ${i + 1}/${chunks}`);
         const openAIFile = await openai.files.create({
-          file: buffer,
+          file: chunkBuffer,
           purpose: "assistants",
         });
-        openAIFileId = openAIFile.id;
-        console.log("File uploaded to OpenAI:", openAIFileId);
-
-        // Create vector store
-        const vectorStore = await openai.beta.vectorStores.create({
-          name: `VectorStore_${fileName}`,
-          file_ids: [openAIFileId],
-        });
-        vectorStoreId = vectorStore.id;
-        console.log("Vector Store created:", vectorStoreId);
-
-        // Poll for vector store readiness
-        await pollVectorStoreReadiness(vectorStoreId);
+        openAIFileIds.push(openAIFile.id);
+        console.log(
+          `Uploaded chunk ${i + 1}/${chunks}, File ID: ${openAIFile.id}`
+        );
       } catch (error) {
-        console.error("Error handling file: ", error);
+        console.error(`Error uploading chunk ${i + 1}/${chunks}:`, error);
+        throw error;
       }
     }
 
-    if (!name) {
-      console.log("name =>  ", name);
-      console.log("description =>  ", description);
-      console.log("anweisungen =>  ", anweisungen);
-      console.log("knowledgeId =>  ", knowledgeId);
+    console.log("All chunks uploaded successfully");
 
-      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    // Create vector store
+    let vectorStore;
+    try {
+      vectorStore = await openai.beta.vectorStores.create({
+        name: `VectorStore_${file.name}`,
+        file_ids: openAIFileIds,
+      });
+      console.log("Vector store created:", vectorStore.id);
+    } catch (error) {
+      console.error("Error creating vector store:", error);
+      throw error;
     }
 
-    // Check if it's an agent creation/update or document creation
-    if (knowledgeId) {
-      // Agent creation or update
-      const agentData = {
-        name,
-        description,
-        anweisungen,
-        knowledgeId,
-      };
+    // Poll for vector store readiness
+    try {
+      await pollVectorStoreReadiness(vectorStore.id);
+      console.log("Vector store is ready");
+    } catch (error) {
+      console.error("Error polling vector store readiness:", error);
+      throw error;
+    }
 
-      let agent;
-      if (formData.get("id")) {
-        // Update existing agent
-        agent = await prisma.agent.update({
-          where: { id: formData.get("id") as string },
-          data: agentData,
-        });
-      } else {
-        // Create new agent
-        agent = await prisma.agent.create({
-          data: agentData,
-        });
+    return NextResponse.json(
+      {
+        openAIFileIds: openAIFileIds,
+        vectorStoreId: vectorStore.id,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("[UPLOAD_ERROR]", error);
+    return NextResponse.json(
+      { error: "Internal error", details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+async function pollVectorStoreReadiness(
+  vectorStoreId: string,
+  maxAttempts = 30,
+  interval = 5000
+) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const vectorStore = await openai.beta.vectorStores.retrieve(
+        vectorStoreId
+      );
+      if (vectorStore.status === "completed") {
+        return;
       }
-
-      return NextResponse.json(
-        { agent, openAIFileId, vectorStoreId },
-        { status: 200 }
+      console.log(
+        `Vector store status: ${vectorStore.status}, attempt ${
+          attempt + 1
+        }/${maxAttempts}`
       );
-    } else {
-      // Document creation
-      const document = await prisma.document.create({
-        data: {
-          name,
-          description,
-          content: anweisungen,
-          fileUrl: fileUrl,
-        },
-      });
-
-      return NextResponse.json(
-        { document, openAIFileId, vectorStoreId },
-        { status: 200 }
+    } catch (error) {
+      console.error(
+        `Error checking vector store status, attempt ${
+          attempt + 1
+        }/${maxAttempts}:`,
+        error
       );
     }
-  } catch (error) {
-    console.error("[POST_ERROR]", error);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    await new Promise((resolve) => setTimeout(resolve, interval));
   }
-}
-
-async function pollVectorStoreReadiness(vectorStoreId: string) {
-  let isReady = false;
-  while (!isReady) {
-    const vectorStore = await openai.beta.vectorStores.retrieve(vectorStoreId);
-    if (vectorStore.status === "completed") {
-      isReady = true;
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait for 5 seconds before checking again
-    }
-  }
-}
-
-// ... (rest of the code remains unchanged)
-
-export async function GET(req: NextRequest): Promise<NextResponse> {
-  try {
-    const url = new URL(req.url);
-    const type = url.searchParams.get("type");
-
-    if (type === "agents") {
-      const agents = await prisma.agent.findMany();
-      return NextResponse.json(agents, { status: 200 });
-    } else {
-      const documents = await prisma.document.findMany();
-      return NextResponse.json(documents, { status: 200 });
-    }
-  } catch (error) {
-    console.error("[GET_ERROR]", error);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  try {
-    const { id, type } = await req.json();
-    if (!id) {
-      return NextResponse.json({ error: "ID is required" }, { status: 400 });
-    }
-
-    if (type === "agent") {
-      const deletedAgent = await prisma.agent.delete({
-        where: {
-          id,
-        },
-      });
-      return NextResponse.json(deletedAgent, { status: 200 });
-    } else {
-      const deletedDocument = await prisma.document.delete({
-        where: {
-          id,
-        },
-      });
-      return NextResponse.json(deletedDocument, { status: 200 });
-    }
-  } catch (error) {
-    console.log("[DELETE_ERROR]", error);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
-  }
-}
-
-export function OPTIONS(req: NextRequest): NextResponse {
-  const headers = new Headers();
-  headers.set("Access-Control-Allow-Origin", "*");
-  headers.set(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS"
-  );
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  return NextResponse.json({}, { headers });
+  throw new Error(`Vector store not ready after ${maxAttempts} attempts`);
 }
