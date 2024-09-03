@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { supabase } from "@/lib/supabaseClient";
-import { supabaseS3Client } from "@/lib/supabaseS3Client";
 import { decode } from "base64-arraybuffer";
+import { writeFile } from "fs/promises";
+import { join } from "path";
 
 const prisma = new PrismaClient();
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    // Existing document creation logic
     if (!req.body) {
       return NextResponse.json({ error: "No data provided" }, { status: 400 });
     }
@@ -27,12 +27,14 @@ export async function POST(req: Request) {
     const knowledgeId = formData.get("knowledgeId") as string;
 
     console.log("base64", base64);
-    try {
-      if (file) {
+
+    let fileUrl = "";
+    if (file) {
+      try {
         const fileName = file.name;
         const base641 = base64.split("base64,")[1];
 
-        var { data, error } = await supabase.storage
+        const { data, error } = await supabase.storage
           .from("AI Documents")
           .upload(fileName, decode(base641), {
             cacheControl: "3600",
@@ -43,10 +45,18 @@ export async function POST(req: Request) {
           console.error("Error uploading file: ", error);
         } else {
           console.log("File uploaded successfully: ", data);
+          fileUrl = data.path;
         }
+
+        // Also save file locally
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const path = join(process.cwd(), "public", "uploads", file.name);
+        await writeFile(path, buffer);
+        console.log(`File also saved locally to ${path}`);
+      } catch (error) {
+        console.error("Error handling file: ", error);
       }
-    } catch (error) {
-      console.error("Error uploading file: ", error);
     }
 
     if (!name) {
@@ -84,13 +94,13 @@ export async function POST(req: Request) {
 
       return NextResponse.json(agent, { status: 200 });
     } else {
-      // Existing document creation logic
+      // Document creation
       const document = await prisma.document.create({
         data: {
           name,
           description,
           content: anweisungen,
-          // fileUrl: data?.path,
+          fileUrl: fileUrl,
         },
       });
 
@@ -102,7 +112,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
     const url = new URL(req.url);
     const type = url.searchParams.get("type");
@@ -120,7 +130,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(req: NextRequest): Promise<NextResponse> {
   try {
     const { id, type } = await req.json();
     if (!id) {
@@ -146,4 +156,15 @@ export async function DELETE(req: Request) {
     console.log("[DELETE_ERROR]", error);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
+}
+
+export function OPTIONS(req: NextRequest): NextResponse {
+  const headers = new Headers();
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  return NextResponse.json({}, { headers });
 }

@@ -1,6 +1,7 @@
 import { SynapseKnowledge } from "@/lib/interfaces/SynapseKnowledge";
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
+import { supabase } from "@/lib/supabaseClient";
 
 interface State {
   userId: string | null;
@@ -19,12 +20,12 @@ interface Knowledge {
 interface KnowledgesStore {
   knowledges: Knowledge[];
   selected: Knowledge | null;
-
   addKnowledge: (knowledge: Knowledge) => void;
   removeKnowledge: (id: string) => void;
   updateKnowledge: (knowledge: Knowledge) => void;
   selectKnowledge: (knowledge: Knowledge) => void;
   setKnowledges: (knowledges: Knowledge[]) => void;
+  fetchKnowledges: () => Promise<void>;
 }
 
 const initialState: State = {
@@ -52,4 +53,16 @@ export const useKnowledgesStore = create<KnowledgesStore>((set) => ({
       ),
     })),
   setKnowledges: (knowledges) => set({ knowledges }),
+  fetchKnowledges: async () => {
+    try {
+      const { data, error } = await supabase.from("knowledges").select("*");
+      if (error) {
+        console.error("Error fetching knowledges:", error);
+      } else {
+        set({ knowledges: data });
+      }
+    } catch (error) {
+      console.error("Error in fetchKnowledges:", error);
+    }
+  },
 }));

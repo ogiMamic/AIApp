@@ -35,7 +35,7 @@ const ListItem = ({ agent }: Props) => {
         "flex justify-between items-center py-3 px-3 hover:bg-gray-100 w-full rounded-md cursor-pointer",
         selected?.id === agent.id
           ? "bg-[#38ef7d] text-[#0F3443]"
-          : "bg-white text-gray-900"
+          : "bg-gray-50 text-gray-900"
       )}
       onClick={handleSelect} // Promenjena linija da koristi handleSelect funkciju
     >

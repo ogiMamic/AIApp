@@ -1,64 +1,92 @@
 import create from "zustand";
-import { supabase } from "@/lib/supabaseClient"; // Import Supabase client
-import { IMessage } from "@/lib/interfaces/IMessage"; // corrected import casing
+import { supabase } from "@/lib/supabaseClient";
+import { IMessage } from "@/lib/interfaces/IMessage";
+
+interface ChatHistory {
+  id: string;
+  messages: IMessage[];
+  favorite: boolean;
+  archived: boolean;
+  deleted: boolean;
+}
 
 interface ChatHistoryState {
-  histories: { id: string; messages: IMessage[] }[];
-  currentChatId: string | null;
+  histories: ChatHistory[];
   selectedChatId: string | null;
+  fetchHistories: () => Promise<void>;
   startNewChat: () => void;
   addMessageToCurrentChat: (newMessage: IMessage) => void;
   selectChat: (id: string) => void;
-  removeHistory: (id: string) => void;
-  fetchHistories: () => Promise<void>; // Dodaj ovu liniju
+  removeHistory: (id: string) => Promise<void>;
+  updateHistory: (id: string, updates: Partial<ChatHistory>) => Promise<void>;
 }
 
-export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
+export const useChatHistoryStore = create<ChatHistoryState>((set, get) => ({
   histories: [],
-  currentChatId: null,
   selectedChatId: null,
 
-  startNewChat: () =>
-    set((state) => {
-      const newChatId = `${new Date().getTime()}`;
-      return {
-        currentChatId: newChatId,
-        histories: [...state.histories, { id: newChatId, messages: [] }],
-      };
-    }),
+  fetchHistories: async () => {
+    const { data, error } = await supabase
+      .from("chat_histories")
+      .select("*")
+      .order("id", { ascending: false });
 
-  addMessageToCurrentChat: (newMessage) =>
+    if (error) {
+      console.error("Error fetching chat histories:", error);
+    } else {
+      set({ histories: data || [] });
+    }
+  },
+
+  startNewChat: () => {
+    const newChatId = `${new Date().getTime()}`;
+    set((state) => ({
+      selectedChatId: newChatId,
+      histories: [
+        {
+          id: newChatId,
+          messages: [],
+          favorite: false,
+          archived: false,
+          deleted: false,
+        },
+        ...state.histories,
+      ],
+    }));
+  },
+
+  addMessageToCurrentChat: (newMessage) => {
     set((state) => ({
       histories: state.histories.map((history) =>
-        history.id === state.currentChatId
+        history.id === state.selectedChatId
           ? { ...history, messages: [...history.messages, newMessage] }
           : history
       ),
-    })),
+    }));
+  },
 
-  selectChat: (id) =>
-    set({
-      selectedChatId: id,
-    }),
+  selectChat: (id) => set({ selectedChatId: id }),
 
-  removeHistory: (id) =>
+  removeHistory: async (id) => {
+    await supabase
+      .from("chat_histories")
+      .update({ deleted: true })
+      .eq("id", id);
+
     set((state) => ({
-      histories: state.histories.filter((history) => history.id !== id),
-    })),
+      histories: state.histories.map((history) =>
+        history.id === id ? { ...history, deleted: true } : history
+      ),
+    }));
+  },
 
-  fetchHistories: async () => {
-    const { data: histories, error } = await supabase
-      .from("threads")
-      .select("*");
-    if (error) {
-      console.error("Error fetching histories from Supabase:", error.message);
-    } else {
-      set((state) => ({
-        histories: histories.map((history) => ({
-          id: history.id,
-          messages: history.messages || [],
-        })),
-      }));
-    }
+  updateHistory: async (id, updates) => {
+    await supabase.from("chat_histories").update(updates).eq("id", id);
+
+    set((state) => ({
+      histories: state.histories.map((history) =>
+        history.id === id ? { ...history, ...updates } : history
+      ),
+    }));
   },
 }));

@@ -5,4 +5,5 @@ export interface SynapseKnowledge {
   anweisungen: string;
   actions?: string[];
   parentId?: string; // Optional property to indicate the parent folder
+  agents: SynapseAgent[];
 }

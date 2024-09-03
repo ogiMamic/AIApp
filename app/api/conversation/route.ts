@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   try {
     const { userId } = auth();
     const body = await req.json();
-    const { messages, agent, threadId: clientThreadId } = body;
+    const { messages, agent, threadId: clientThreadId, vectorStoreId } = body;
 
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
@@ -50,10 +50,22 @@ export async function POST(req: Request) {
       content: messages[messages.length - 1].content,
     });
 
-    // Run the Assistant
-    let run = await openai.beta.threads.runs.create(threadId, {
+    // Prepare run parameters
+    const runParams: any = {
       assistant_id: assistantId,
-    });
+    };
+
+    // Add vector store to run parameters if available
+    if (vectorStoreId) {
+      runParams.tool_resources = {
+        file_search: {
+          vector_store_ids: [vectorStoreId],
+        },
+      };
+    }
+
+    // Run the Assistant
+    let run = await openai.beta.threads.runs.create(threadId, runParams);
 
     // Poll for the status of the run
     while (

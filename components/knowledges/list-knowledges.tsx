@@ -287,7 +287,7 @@ const ListKnowledges = ({
   };
 
   return (
-    <div className="pt-6 pb-4 pl-4 pr-4 flex-col lg:col-span-3 bg-gray-50 p-0 h-full ">
+    <div className="pt-6 pb-4 px-4 flex-col lg:col-span-3 bg-gray-50 h-full overflow-auto">
       <DropdownMenu>
         <div className="pl-6 pr-6 pb-4">
           <DropdownMenuTrigger asChild>

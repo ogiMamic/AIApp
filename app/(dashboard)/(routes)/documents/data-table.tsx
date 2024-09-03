@@ -1,6 +1,5 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import * as React from "react";
 import {
   ColumnDef,
@@ -15,13 +14,14 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
 import {
   Table,
   TableBody,
@@ -67,7 +67,7 @@ export function DataTable<TData, TValue>({
       columnVisibility,
       rowSelection,
     },
-    initialState: { pagination: { pageSize: 6 } }, // Set page size to 6
+    initialState: { pagination: { pageSize: 6 } },
   });
 
   return (
