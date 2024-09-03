@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import * as z from "zod";
@@ -82,6 +82,18 @@ const ConversationPage = () => {
     formState: { errors, isSubmitting },
   } = methods;
   const isLoading = isSubmitting;
+
+  const filteredHistories = useMemo(() => {
+    return histories
+      .filter((history) => !history.archived)
+      .filter((history) => (showDeleted ? history.deleted : !history.deleted))
+      .filter((history) =>
+        history.messages.some((message) =>
+          message.content.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      )
+      .sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
+  }, [histories, showDeleted, searchTerm]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -200,6 +212,7 @@ const ConversationPage = () => {
         threadId: threadId,
         knowledge_id: selectedKnowledge,
         vectorStoreId: vectorStoreId,
+        fileAnalysis: file ? true : false,
       });
 
       if (response.data.threadId) {
@@ -256,20 +269,10 @@ const ConversationPage = () => {
     alert("Chat link copied to clipboard!");
   };
 
-  const filteredHistories = histories
-    .filter((history) => !history.archived)
-    .filter((history) => (showDeleted ? history.deleted : !history.deleted))
-    .filter((history) =>
-      history.messages.some((message) =>
-        message.content.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    )
-    .sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
-
   const openAIAgents = agents.filter((agent) => agent.openai_assistant_id);
 
   return (
-    <div className="flex ">
+    <div className="flex">
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white p-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -291,7 +294,7 @@ const ConversationPage = () => {
           </div>
         </header>
 
-        <main className="flex-1 ">
+        <main className="flex-1">
           <div className="max-w-4xl mx-auto px-8 py-0 space-y-4">
             <FormProvider {...methods}>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -499,7 +502,7 @@ const ConversationPage = () => {
             />
             <label htmlFor="notifications">Enable notifications</label>
           </div>
-          <ul className="space-y-2  flex-grow">
+          <ul className="space-y-2 flex-grow">
             {filteredHistories.map((history, index) => (
               <li
                 key={history.id}
@@ -557,7 +560,7 @@ const ConversationPage = () => {
                             removeHistory(history.id);
                           }}
                         >
-                          <Trash className="w-4 w-4 text-red-500" />
+                          <Trash className="w-4 text-red-500" />
                         </button>
                         <button
                           onClick={(e) => {

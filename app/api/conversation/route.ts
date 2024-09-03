@@ -10,7 +10,13 @@ export async function POST(req: Request) {
   try {
     const { userId } = auth();
     const body = await req.json();
-    const { messages, agent, threadId: clientThreadId, vectorStoreId } = body;
+    const {
+      messages,
+      agent,
+      threadId: clientThreadId,
+      vectorStoreId,
+      fileAnalysis,
+    } = body;
 
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
@@ -57,11 +63,16 @@ export async function POST(req: Request) {
 
     // Add vector store to run parameters if available
     if (vectorStoreId) {
-      runParams.tool_resources = {
-        file_search: {
-          vector_store_ids: [vectorStoreId],
+      runParams.tools = [
+        {
+          type: "retrieval",
         },
-      };
+      ];
+    }
+
+    // If file analysis is requested, add instructions
+    if (fileAnalysis) {
+      runParams.instructions = `${agent.instructions}\n\nPlease analyze the uploaded file and provide insights based on its content.`;
     }
 
     // Run the Assistant
