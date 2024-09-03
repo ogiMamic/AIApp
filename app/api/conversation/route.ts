@@ -14,6 +14,7 @@ export async function POST(req: Request) {
       messages,
       agent,
       threadId: clientThreadId,
+      openAIFileId,
       vectorStoreId,
       fileAnalysis,
     } = body;
@@ -54,25 +55,27 @@ export async function POST(req: Request) {
     await openai.beta.threads.messages.create(threadId, {
       role: "user",
       content: messages[messages.length - 1].content,
+      file_ids: openAIFileId ? [openAIFileId] : undefined,
     });
 
     // Prepare run parameters
     const runParams: any = {
       assistant_id: assistantId,
+      tools: [{ type: "file_search" }],
     };
 
-    // Add vector store to run parameters if available
+    // Add file and vector store to run parameters if available
     if (vectorStoreId) {
-      runParams.tools = [
-        {
-          type: "retrieval",
+      runParams.tool_resources = {
+        file_search: {
+          vector_store_ids: [vectorStoreId],
         },
-      ];
+      };
     }
 
     // If file analysis is requested, add instructions
     if (fileAnalysis) {
-      runParams.instructions = `${agent.instructions}\n\nPlease analyze the uploaded file and provide insights based on its content.`;
+      runParams.instructions = `${agent.instructions}\n\nPlease analyze the uploaded file and provide insights based on its content. Use the vector store with ID ${vectorStoreId} for efficient retrieval.`;
     }
 
     // Run the Assistant

@@ -123,7 +123,7 @@ export default function SettingsLayout({
                 </button>
                 <div
                   className={cn(
-                    "space-y-1 overflow-hidden transition-all duration-300 ease-in-out",
+                    "space-y-1 overflow-hidden transition-all duration-300 py-1 ease-in-out",
                     item.name === activeSection ? "max-h-96" : "max-h-0"
                   )}
                 >

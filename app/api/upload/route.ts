@@ -4,8 +4,12 @@ import { supabase } from "@/lib/supabaseClient";
 import { decode } from "base64-arraybuffer";
 import { writeFile } from "fs/promises";
 import { join } from "path";
+import OpenAI from "openai";
 
 const prisma = new PrismaClient();
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -29,6 +33,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.log("base64", base64);
 
     let fileUrl = "";
+    let openAIFileId = null;
+    let vectorStoreId = null;
+
     if (file) {
       try {
         const fileName = file.name;
@@ -42,18 +49,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             upsert: true,
           });
         if (error) {
-          console.error("Error uploading file: ", error);
+          console.error("Error uploading file to Supabase: ", error);
         } else {
-          console.log("File uploaded successfully: ", data);
+          console.log("File uploaded successfully to Supabase: ", data);
           fileUrl = data.path;
         }
 
-        // Also save file locally
+        // Save file locally
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
         const path = join(process.cwd(), "public", "uploads", file.name);
         await writeFile(path, buffer);
-        console.log(`File also saved locally to ${path}`);
+        console.log(`File saved locally to ${path}`);
+
+        // Upload file to OpenAI
+        const openAIFile = await openai.files.create({
+          file: buffer,
+          purpose: "assistants",
+        });
+        openAIFileId = openAIFile.id;
+        console.log("File uploaded to OpenAI:", openAIFileId);
+
+        // Create vector store
+        const vectorStore = await openai.beta.vectorStores.create({
+          name: `VectorStore_${fileName}`,
+          file_ids: [openAIFileId],
+        });
+        vectorStoreId = vectorStore.id;
+        console.log("Vector Store created:", vectorStoreId);
+
+        // Poll for vector store readiness
+        await pollVectorStoreReadiness(vectorStoreId);
       } catch (error) {
         console.error("Error handling file: ", error);
       }
@@ -92,7 +118,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         });
       }
 
-      return NextResponse.json(agent, { status: 200 });
+      return NextResponse.json(
+        { agent, openAIFileId, vectorStoreId },
+        { status: 200 }
+      );
     } else {
       // Document creation
       const document = await prisma.document.create({
@@ -104,13 +133,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         },
       });
 
-      return NextResponse.json(document, { status: 200 });
+      return NextResponse.json(
+        { document, openAIFileId, vectorStoreId },
+        { status: 200 }
+      );
     }
   } catch (error) {
     console.error("[POST_ERROR]", error);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
+
+async function pollVectorStoreReadiness(vectorStoreId: string) {
+  let isReady = false;
+  while (!isReady) {
+    const vectorStore = await openai.beta.vectorStores.retrieve(vectorStoreId);
+    if (vectorStore.status === "completed") {
+      isReady = true;
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait for 5 seconds before checking again
+    }
+  }
+}
+
+// ... (rest of the code remains unchanged)
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {

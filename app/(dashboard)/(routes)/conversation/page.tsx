@@ -65,6 +65,7 @@ const ConversationPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleted, setShowDeleted] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [openAIFileId, setOpenAIFileId] = useState<string | null>(null);
   const [vectorStoreId, setVectorStoreId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -161,6 +162,7 @@ const ConversationPage = () => {
           "Content-Type": "multipart/form-data",
         },
       });
+      setOpenAIFileId(response.data.openAIFileId);
       setVectorStoreId(response.data.vectorStoreId);
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -211,6 +213,7 @@ const ConversationPage = () => {
         },
         threadId: threadId,
         knowledge_id: selectedKnowledge,
+        openAIFileId: openAIFileId,
         vectorStoreId: vectorStoreId,
         fileAnalysis: file ? true : false,
       });

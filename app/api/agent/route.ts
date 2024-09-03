@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const VALID_MODELS = ["gpt-3.5-turbo", "gpt-4"];
+const VALID_MODELS = ["gpt-3.5-turbo", "gpt-4-turbo-preview", "gpt-4"];
 
 export async function POST(request: Request) {
   try {

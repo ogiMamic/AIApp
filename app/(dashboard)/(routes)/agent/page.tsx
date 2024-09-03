@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import * as z from "zod";
@@ -10,7 +11,7 @@ import {
   ChevronsUpDown,
   HelpCircle,
 } from "lucide-react";
-import { Heading } from "@/components/headling";
+import { Heading } from "@/components/heading";
 import { useForm } from "react-hook-form";
 import { formSchema } from "./constants";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -303,7 +304,7 @@ const AgentPage = () => {
           description: selected.description,
           instructions: selected.anweisungen,
           message: values.prompt,
-          model: selected.model || "gpt-4",
+          model: selected.model || "gpt-4-turbo-preview",
           knowledgeId: selected.knowledgeId,
         });
 
@@ -454,7 +455,6 @@ const AgentPage = () => {
                 </Button>
               </div>
 
-              {/* Help Dialog */}
               <Dialog
                 open={isHelpDialogOpen}
                 onOpenChange={setIsHelpDialogOpen}
@@ -663,7 +663,6 @@ const AgentPage = () => {
                       </Select>
                     </div>
 
-                    {/* File Upload Section */}
                     <div className="mt-4">
                       <label
                         htmlFor="fileUpload"
