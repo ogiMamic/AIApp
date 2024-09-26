@@ -82,7 +82,7 @@ const AgentPage = () => {
   ];
 
   const { selectedItems, clearSelectedItems } = useCustomStore();
-  const { selected, addAgent, updateAgent } = useAgentsStore();
+  const { selected, addAgent, updateAgent, setAgents } = useAgentsStore();
 
   const [isDialogOpen, setDialogOpen] = useState(false);
   const toggleDialog = () => setDialogOpen(!isDialogOpen);
@@ -120,6 +120,24 @@ const AgentPage = () => {
       prompt: "",
     },
   });
+
+  useEffect(() => {
+    fetchAgents();
+  }, []);
+
+  const fetchAgents = async () => {
+    try {
+      const response = await axios.post("/api/agent", { action: "list" });
+      if (response.data.success) {
+        setAgents(response.data.assistants);
+      } else {
+        setError("Failed to fetch agents");
+      }
+    } catch (error) {
+      console.error("Error fetching agents:", error);
+      setError("An error occurred while fetching agents");
+    }
+  };
 
   const UploadedFilesList = () => {
     return (
@@ -210,14 +228,6 @@ const AgentPage = () => {
       setSelectedKnowledge(selected.knowledgeId);
     }
   }, [selected]);
-
-  useEffect(() => {
-    console.log("Selected agent:", selected);
-  }, [selected]);
-
-  useEffect(() => {
-    console.log("Messages:", messages);
-  }, [messages]);
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -364,15 +374,16 @@ const AgentPage = () => {
   const handleSave = async () => {
     if (selected) {
       try {
-        const response = await axios.post("/api/knowledge", {
-          id: selected.id,
+        const response = await axios.post("/api/agent", {
+          action: "update",
+          agentId: selected.id,
           name,
           description,
-          anweisungen,
-          fileId: uploadedFileUrl,
+          instructions: anweisungen,
+          model: selected.model || "gpt-4-turbo-preview",
           knowledgeId: selectedKnowledge,
         });
-        if (response.data.id) {
+        if (response.data.success) {
           updateAgent({
             ...selected,
             name,
@@ -396,34 +407,40 @@ const AgentPage = () => {
   const handleCreateAgent = async () => {
     try {
       setError(null);
-      const response = await axios.post("/api/knowledge", {
+      setIsLoading(true);
+      const response = await axios.post("/api/agent", {
+        action: "create",
         name,
         description,
-        anweisungen,
-        fileId: uploadedFileUrl,
+        instructions: anweisungen,
+        model: "gpt-4-turbo-preview",
         knowledgeId: selectedKnowledge,
       });
 
-      if (response.data.id) {
-        addAgent({
-          id: response.data.id,
+      if (response.data.success) {
+        const newAgent = {
+          id: response.data.assistant.id,
           name,
           description,
           anweisungen,
           knowledgeId: selectedKnowledge,
-        });
-
+          model: "gpt-4-turbo-preview",
+          openai_assistant_id: response.data.assistant.id,
+        };
+        addAgent(newAgent);
         setName("");
         setDescription("");
         setAnweisungen("");
         setSelectedKnowledge(null);
-        router.refresh();
+        fetchAgents(); // Refresh the list of agents
       } else {
         setError("Failed to create agent.");
       }
     } catch (error) {
       console.error("Error creating agent:", error);
       setError("An error occurred while creating the agent. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -725,130 +742,75 @@ const AgentPage = () => {
                         <Tabs defaultValue="Synapse DB" className="w-[400px]">
                           <TabsList>
                             <TabsTrigger value="Synapse DB">
-                              GO Synapse Database
+                              Synapse DB
                             </TabsTrigger>
-                            <TabsTrigger value="minIO">minIO</TabsTrigger>
+                            <TabsTrigger value="MinIO">MinIO</TabsTrigger>
                           </TabsList>
-                          <TabsContent className="pt-4" value="Synapse DB">
-                            <label className="ml-1">Wähle eine Tabelle</label>
-                            <br></br>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  aria-expanded={open}
-                                  className="w-[200px] justify-between mt-2"
-                                >
-                                  {value
-                                    ? frameworks.find(
-                                        (framework) => framework.value === value
-                                      )?.label
-                                    : "Tabelle auswählen..."}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-[200px] p-0">
-                                <Command>
-                                  <CommandInput placeholder="Tabelle suchen..." />
-                                  <CommandEmpty>No Backet found.</CommandEmpty>
-                                  <CommandGroup>
-                                    {frameworks.map((framework) => (
-                                      <CommandItem
-                                        key={framework.value}
-                                        value={framework.value}
-                                        onSelect={(currentValue) => {
-                                          setValue(
-                                            currentValue === value
-                                              ? ""
-                                              : currentValue
-                                          );
-                                          setOpen(false);
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            value === framework.value
-                                              ? "opacity-100"
-                                              : "opacity-0"
-                                          )}
-                                        />
-                                        {framework.label}
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>{" "}
+                          <TabsContent value="Synapse DB">
+                            <Card>
+                              <CardFooter>
+                                <Popover open={open} onOpenChange={setOpen}>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      role="combobox"
+                                      aria-expanded={open}
+                                      className="w-[200px] justify-between"
+                                    >
+                                      {value
+                                        ? frameworks.find(
+                                            (framework) =>
+                                              framework.value === value
+                                          )?.label
+                                        : "Select framework..."}
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[200px] p-0">
+                                    <Command>
+                                      <CommandInput placeholder="Search framework..." />
+                                      <CommandEmpty>
+                                        No framework found.
+                                      </CommandEmpty>
+                                      <CommandGroup>
+                                        {frameworks.map((framework) => (
+                                          <CommandItem
+                                            key={framework.value}
+                                            value={framework.value}
+                                            onSelect={(currentValue) => {
+                                              setValue(
+                                                currentValue === value
+                                                  ? ""
+                                                  : currentValue
+                                              );
+                                              setOpen(false);
+                                            }}
+                                          >
+                                            <Check
+                                              className={cn(
+                                                "mr-2 h-4 w-4",
+                                                value === framework.value
+                                                  ? "opacity-100"
+                                                  : "opacity-0"
+                                              )}
+                                            />
+                                            {framework.label}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
+                              </CardFooter>
+                            </Card>
                           </TabsContent>
-                          <TabsContent className="pt-4" value="minIO">
-                            <label className="ml-1">Wähle eine Datei</label>{" "}
-                            <br></br>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  aria-expanded={open}
-                                  className="w-[200px] justify-between mt-2"
-                                >
-                                  {value
-                                    ? frameworks.find(
-                                        (framework) => framework.value === value
-                                      )?.label
-                                    : "Datei auswählen..."}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-[200px] p-0">
-                                <Command>
-                                  <CommandInput placeholder="Datei suchen..." />
-                                  <CommandEmpty>No Backet found.</CommandEmpty>
-                                  <CommandGroup>
-                                    {frameworks.map((framework) => (
-                                      <CommandItem
-                                        key={framework.value}
-                                        value={framework.value}
-                                        onSelect={(currentValue) => {
-                                          setValue(
-                                            currentValue === value
-                                              ? ""
-                                              : currentValue
-                                          );
-                                          setOpen(false);
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            value === framework.value
-                                              ? "opacity-100"
-                                              : "opacity-0"
-                                          )}
-                                        />
-                                        {framework.label}
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
+                          <TabsContent value="MinIO">
+                            Change your password here.
                           </TabsContent>
                         </Tabs>
-                        <DialogFooter className="sm:justify-end">
+                        <DialogFooter>
                           <DialogClose asChild>
-                            <Button type="button" variant="ghost">
-                              Abbrechen
-                            </Button>
-                          </DialogClose>
-                          <DialogClose asChild>
-                            <Button
-                              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                              type="button"
-                              variant="default"
-                              onClick={handleCreateAction}
-                            >
+                            <Button type="button" onClick={handleCreateAction}>
                               Aktion erstellen
                             </Button>
                           </DialogClose>
@@ -856,124 +818,63 @@ const AgentPage = () => {
                       </DialogContent>
                     </Dialog>
 
-                    <ul
-                      role="list"
-                      className="mb-6 divide-y divide-gray-100 rounded-md border border-gray-200 mt-3"
-                    >
-                      {selectedItems.map((item, index) => (
-                        <li
-                          key={index}
-                          className="flex items-center justify-between py-4 pl-4 pr-5 text-sm leading-6"
-                        >
-                          <div className="flex w-0 flex-1 items-center">
-                            <svg
-                              className="h-5 w-5 flex-shrink-0 text-gray-400"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                              aria-hidden="true"
+                    {selected && selected.actions && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-700">
+                          Aktionen
+                        </h4>
+                        <ul className="mt-2 divide-y divide-gray-200 border-t border-b border-gray-200">
+                          {selected.actions.map((action, index) => (
+                            <li
+                              key={index}
+                              className="flex items-center justify-between py-3"
                             >
-                              <path
-                                fillRule="evenodd"
-                                d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            <div className="ml-4 flex min-w-0 flex-1 gap-2">
-                              <span className="truncate font-medium">
-                                {item.label}{" "}
-                              </span>
-                              <span className="flex-shrink-0 text-gray-400">
-                                2.4mb
-                              </span>
-                            </div>
-                          </div>
-                          <div className="ml-4 flex-shrink-0">
-                            <a
-                              href="#"
-                              className="font-medium text-blue-600 hover:text-blue-500"
-                            >
-                              Löschen
-                            </a>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="mt-8">
-                      <h3 className="text-lg font-semibold mb-4">
-                        Interaction History
-                      </h3>
-                      {interactionHistory.map((interaction, index) => (
-                        <div
-                          key={index}
-                          className="mb-4 p-4 bg-gray-100 rounded-lg"
-                        >
-                          <p className="font-semibold">
-                            Q: {interaction.question}
-                          </p>
-                          <p>A: {interaction.answer}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-6 mb-8 flex items-center justify-end gap-x-6">
-                      <button
-                        type="button"
-                        className="text-sm font-semibold leading-6 text-gray-900"
-                      >
-                        Löschen
-                      </button>
-                      <button
-                        type="button"
-                        className="text-sm font-semibold leading-6 text-gray-900"
-                      >
-                        Abbrechen
-                      </button>
-                      <button
-                        onClick={handleSave}
-                        type="submit"
-                        className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                      >
-                        Speichern
-                      </button>
-                      <button
-                        onClick={handleCreateAgent}
-                        type="button"
-                        className="ml-4 rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
-                      >
-                        Agent erstellen
-                      </button>
-                    </div>
+                              <span className="text-sm">{action}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updatedActions =
+                                    selected.actions.filter(
+                                      (_, i) => i !== index
+                                    );
+                                  updateAgent({
+                                    ...selected,
+                                    actions: updatedActions,
+                                  });
+                                }}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Remove
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex flex-col lg:col-span-6 bg-blue-50 p-6 rounded-xl max-h-[600px] overflow-y-auto">
-                  <label
-                    htmlFor="PreviewName"
-                    className="block text-lg font-semibold text-gray-700"
-                  >
-                    Vorschau
-                  </label>
-                  <label
-                    htmlFor="agentDescription"
-                    className="mb-8 block text-sm font-medium text-gray-700"
-                  >
-                    Diese Vorschau eignet sich gut zum Testen. Teste hier deinen
-                    Agent
-                  </label>
-                  <div>
+                <div className="flex-col lg:col-span-6">
+                  <div className="flex-col">
+                    <label
+                      htmlFor="agentTest"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Test Agent
+                    </label>
                     <Form {...form}>
                       <form
                         onSubmit={form.handleSubmit(onSubmit)}
-                        className="space-y-4"
+                        className="rounded-lg border w-full p-4 px-3 md:px-6 focus-within:shadow-sm grid grid-cols-12 gap-2"
                       >
                         <FormField
                           name="prompt"
                           render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
+                            <FormItem className="col-span-12 lg:col-span-10">
+                              <FormControl className="m-0 p-0">
                                 <Input
                                   className="border-0 outline-none focus-visible:ring-0 focus-visible:ring-transparent"
                                   disabled={isLoading}
-                                  placeholder="Enter your prompt here..."
+                                  placeholder="How do I calculate the radius of a circle?"
                                   {...field}
                                 />
                               </FormControl>
@@ -981,49 +882,39 @@ const AgentPage = () => {
                           )}
                         />
                         <Button
+                          className="col-span-12 lg:col-span-2 w-full"
                           type="submit"
                           disabled={isLoading}
-                          className="w-full"
+                          size="icon"
                         >
-                          {isLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            "Generate"
-                          )}
+                          Generate
                         </Button>
                       </form>
                     </Form>
-                  </div>
-                  {isLoading && (
-                    <div className="p-8 rounded-lg w-full flex items-center justify-center bg-muted">
-                      <Loader />
-                    </div>
-                  )}
-
-                  {messages.length === 0 && !isLoading && (
-                    <Empty label="No conversation started." />
-                  )}
-
-                  <div className="mt-1 flex flex-col-reverse gap-y-4">
-                    {messages.map((message) => (
-                      <div
-                        key={message.content}
-                        className={cn(
-                          "p-8 w-full flex items-start gap-x-8 rounded-lg",
-                          message.role === "user"
-                            ? "bg-white border border-black/10"
-                            : "bg-muted"
-                        )}
-                      >
-                        {message.role === "user" ? (
-                          <UserAvatar />
-                        ) : (
-                          <BotAvatar />
-                        )}
-                        <div className="flex flex-col">
-                          <span className="font-bold">
-                            {message.role === "user" ? "You " : "Agent"}
-                          </span>
+                    {isLoading && (
+                      <div className="p-8 rounded-lg w-full flex items-center justify-center bg-muted">
+                        <Loader />
+                      </div>
+                    )}
+                    {messages.length === 0 && !isLoading && (
+                      <Empty label="No conversation started." />
+                    )}
+                    <div className="flex flex-col-reverse gap-y-4">
+                      {messages.map((message) => (
+                        <div
+                          key={message.content}
+                          className={cn(
+                            "p-8 w-full flex items-start gap-x-8 rounded-lg",
+                            message.role === "user"
+                              ? "bg-white border border-black/10"
+                              : "bg-muted"
+                          )}
+                        >
+                          {message.role === "user" ? (
+                            <UserAvatar />
+                          ) : (
+                            <BotAvatar />
+                          )}
                           <ReactMarkdown
                             components={{
                               pre: ({ node, ...props }) => (
@@ -1043,21 +934,43 @@ const AgentPage = () => {
                             {message.content || ""}
                           </ReactMarkdown>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
+              <div className="mt-8 flex justify-end space-x-4">
+                <Button onClick={handleSave} disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+                <Button onClick={handleCreateAgent} disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Agent"
+                  )}
+                </Button>
+              </div>
+              {error && (
+                <div className="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                  <strong className="font-bold">Error: </strong>
+                  <span className="block sm:inline">{error}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-      {error && (
-        <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
-          <p className="font-semibold">Error:</p>
-          <p>{error}</p>
-        </div>
-      )}
     </>
   );
 };

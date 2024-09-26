@@ -8,6 +8,8 @@ interface State {
   userId: string | null;
   agents: SynapseAgent[];
   selected: SynapseAgent | null;
+  isLoading: boolean;
+  error: string | null;
 }
 
 // Define the interface of the actions that can be performed in the Cart
@@ -16,6 +18,8 @@ interface Actions {
   removeAgent: (item: SynapseAgent) => void;
   updateAgent: (item: SynapseAgent) => void;
   selectAgent: (item: SynapseAgent) => void;
+  fetchAgents: () => Promise<void>;
+  setAgents: (agents: SynapseAgent[]) => void;
 }
 
 // Define the initial state of the cart store
@@ -24,6 +28,8 @@ const initialState: State = {
   userId: null,
   agents: [],
   selected: null,
+  isLoading: false,
+  error: null,
 };
 
 // Create a custom hook to access the cart store
@@ -32,45 +38,44 @@ export const useAgentsStore = create<State & Actions>()(
   devtools(
     persist(
       (set, get) => ({
-        userId: initialState.userId,
-        agents: initialState.agents,
-        selected: initialState.selected,
+        ...initialState,
         addAgent: (agent: SynapseAgent) => {
-          const collection = get().agents;
-          const updatedCollection = [...collection, { ...agent }];
-
           set((state) => ({
-            agents: updatedCollection,
+            agents: [...state.agents, agent],
           }));
         },
         removeAgent: (agent: SynapseAgent) => {
-          const collection = get().agents;
-          const updatedCollection = collection.filter(
-            (item) => item.id !== agent.id
-          );
-
           set((state) => ({
-            agents: updatedCollection,
+            agents: state.agents.filter((item) => item.id !== agent.id),
           }));
         },
         updateAgent: (agent: SynapseAgent) => {
-          const collection = get().agents;
-          const updatedCollection = collection.map((item) => {
-            if (item.id === agent.id) {
-              return agent;
-            }
-            return item;
-          });
-
           set((state) => ({
-            agents: updatedCollection,
+            agents: state.agents.map((item) =>
+              item.id === agent.id ? agent : item
+            ),
           }));
         },
         selectAgent: (agent: SynapseAgent) => {
-          console.log("Selecting agent: ", agent); // Dodaj ovu liniju
-          set((state) => ({
-            selected: agent,
-          }));
+          console.log("Selecting agent: ", agent);
+          set({ selected: agent });
+        },
+        setAgents: (agents: SynapseAgent[]) => {
+          set({ agents });
+        },
+        fetchAgents: async () => {
+          set({ isLoading: true, error: null });
+          try {
+            // Replace this with your actual API call
+            const response = await fetch("/api/agents");
+            if (!response.ok) {
+              throw new Error("Failed to fetch agents");
+            }
+            const agents: SynapseAgent[] = await response.json();
+            set({ agents, isLoading: false });
+          } catch (error) {
+            set({ error: error.message, isLoading: false });
+          }
         },
       }),
       {

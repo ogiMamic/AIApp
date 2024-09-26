@@ -63,7 +63,7 @@ export default function BillingPage() {
           <h2 className="text-2xl font-semibold mb-2 text-white">Starter</h2>
           <p className="text-gray-300 mb-6">Best for small teams</p>
           <div className="text-4xl font-bold mb-6 text-white">
-            $149{" "}
+            149 €{" "}
             <span className="text-xl font-normal text-gray-300">/month</span>
           </div>
           <button className="w-full bg-[#38ef7d] text-[#0F3443] py-2 px-4 rounded-md hover:bg-[#2fd072] transition duration-200">
