@@ -1,117 +1,208 @@
 "use client";
 
-import { useState } from "react";
-import { Users, Clock, ChevronDown, MoreVertical } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { SynapseAgent } from "@/lib/interfaces/SynapseAgent";
+import { useAgentsStore } from "@/store/agentsStore/useAgentsStore";
+import { toast } from "sonner";
+import axios from "axios";
+import { Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Card, CardContent } from "@/components/ui/card";
 
-const teamMembers = [
-  {
-    name: "Ognjen Mamic",
-    email: "ognjendesigner@gmail.com",
-    joinedAt: "6 months ago",
-    role: "Admin",
-    groups: [],
-  },
-];
+interface ListAgentsProps {
+  onSelectAgent: (agent: SynapseAgent) => void;
+}
 
-export default function TeamMembersPage() {
-  const [activeTab, setActiveTab] = useState("active");
+const ListAgents: React.FC<ListAgentsProps> = ({ onSelectAgent }) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDeletingAgent, setIsDeletingAgent] = useState(false);
+  const { agents, setAgents, selected, removeAgent, addAgent } =
+    useAgentsStore();
+
+  useEffect(() => {
+    fetchAgents();
+  }, []);
+
+  const fetchAgents = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post("/api/agent", {
+        action: "list",
+      });
+      if (response.data.success) {
+        const newAgents = response.data.assistants.map((assistant: any) => ({
+          id: assistant.id,
+          name: assistant.name,
+          description: assistant.description,
+          openai_assistant_id: assistant.id,
+        }));
+        setAgents(newAgents);
+      } else {
+        toast.error("Failed to fetch agents");
+      }
+    } catch (error) {
+      console.error("Error fetching agents:", error);
+      toast.error("An error occurred while fetching agents");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteAgent = async (agentId: string) => {
+    setIsDeletingAgent(true);
+    try {
+      const response = await axios.post("/api/agent", {
+        action: "delete",
+        agentId: agentId,
+      });
+      if (response.data.success) {
+        removeAgent(agentId);
+        if (selected && selected.id === agentId) {
+          onSelectAgent(null);
+        }
+        toast.success("Agent deleted successfully");
+      } else {
+        throw new Error(response.data.error || "Failed to delete agent");
+      }
+    } catch (error: any) {
+      console.error("Error deleting agent:", error);
+      toast.error(`Failed to delete agent: ${error.message}`);
+    } finally {
+      setIsDeletingAgent(false);
+    }
+  };
+
+  const createAgent = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post("/api/agent", {
+        action: "create",
+        name: `New Agent ${Date.now()}`,
+        description: "AI Assistant",
+        instructions: "You are a helpful AI assistant.",
+        model: "gpt-4-turbo-preview",
+      });
+
+      if (response.data.success) {
+        const newAgent: SynapseAgent = {
+          id: response.data.assistant.id,
+          name: response.data.assistant.name,
+          description: response.data.assistant.description,
+          openai_assistant_id: response.data.assistant.id,
+        };
+        addAgent(newAgent);
+        onSelectAgent(newAgent);
+        toast.success("Agent Created", {
+          description: "You have successfully created the agent",
+        });
+        fetchAgents(); // Refresh the list of agents
+      } else {
+        toast.error("Failed to create agent");
+      }
+    } catch (error) {
+      console.error("Error creating agent:", error);
+      toast.error("An error occurred while creating the agent");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold flex items-center text-gray-800">
-          <Users className="h-8 w-8 mr-3 text-gray-600" />
-          Team Members
-        </h1>
-        <div className="flex items-center">
-          <span className="text-gray-600 mr-4">1 / 5 seats used</span>
-          <button className="bg-blue-100 text-blue-700 px-4 py-2 rounded-md hover:bg-blue-200 transition duration-200 flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Invite Team Members
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="flex border-b border-gray-200">
-          <button
-            className={`px-6 py-3 text-sm font-medium ${
-              activeTab === "active"
-                ? "text-gray-900 border-b-2 border-gray-900"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveTab("active")}
-          >
-            <Users className="h-5 w-5 inline mr-2" />
-            Active Members
-          </button>
-          <button
-            className={`px-6 py-3 text-sm font-medium ${
-              activeTab === "pending"
-                ? "text-gray-900 border-b-2 border-gray-900"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveTab("pending")}
-          >
-            <Clock className="h-5 w-5 inline mr-2" />
-            Pending Invitations (0)
-          </button>
-        </div>
-
-        <table className="w-full">
-          <thead>
-            <tr className="text-left text-gray-500 text-sm uppercase">
-              <th className="px-6 py-3">Name</th>
-              <th className="px-6 py-3">Role</th>
-              <th className="px-6 py-3">Groups</th>
-              <th className="px-6 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {teamMembers.map((member, index) => (
-              <tr key={index} className="border-t border-gray-200">
-                <td className="px-6 py-4">
-                  <div className="text-gray-900">{member.name}</div>
-                  <div className="text-gray-500 text-sm">{member.email}</div>
-                  <div className="text-gray-400 text-xs flex items-center mt-1">
-                    <Clock className="h-3 w-3 mr-1" />
-                    Joined {member.joinedAt}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="relative">
-                    <select className="appearance-none bg-white border border-gray-300 rounded px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                      <option>Admin</option>
-                      <option>Member</option>
-                      <option>Viewer</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                      <ChevronDown className="h-4 w-4" />
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="relative">
-                    <select className="appearance-none bg-white border border-gray-300 rounded px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                      <option>Select groups (Optional)</option>
-                      <option>Group 1</option>
-                      <option>Group 2</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                      <ChevronDown className="h-4 w-4" />
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <button className="text-gray-400 hover:text-gray-600">
-                    <MoreVertical className="h-5 w-5" />
-                  </button>
-                </td>
-              </tr>
+    <Card className="h-full">
+      <CardContent className="p-4">
+        <h2 className="text-xl font-bold mb-4">Agents</h2>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="ml-2">Loading agents...</span>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {agents.map((agent) => (
+              <li
+                key={agent.id}
+                className="flex items-center justify-between p-2 hover:bg-gray-100 rounded transition-colors duration-200"
+              >
+                <span
+                  className="font-medium cursor-pointer"
+                  onClick={() => onSelectAgent(agent)}
+                >
+                  {agent.name || "Unnamed Agent"}
+                </span>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Are you absolutely sure?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently
+                        delete the agent from both our system and the OpenAI
+                        dashboard.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => deleteAgent(agent.id)}
+                        disabled={isDeletingAgent}
+                      >
+                        {isDeletingAgent ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          "Delete"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </li>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          </ul>
+        )}
+        {agents.length === 0 && !isLoading && (
+          <p className="text-center py-4 text-gray-500">No agents found</p>
+        )}
+        <Button
+          className="w-full mt-4 bg-gradient-to-r from-blue-500 to-teal-400 hover:from-blue-600 hover:to-teal-500 text-white font-semibold"
+          onClick={createAgent}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            "+ Create new Agent"
+          )}
+        </Button>
+      </CardContent>
+    </Card>
   );
-}
+};
+
+export default ListAgents;

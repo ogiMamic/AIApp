@@ -101,6 +101,36 @@ export async function POST(request: Request) {
           assistants: assistants.data,
         });
 
+      case "delete":
+        if (!agentId) {
+          return NextResponse.json(
+            { success: false, error: "Agent ID is required for deletion" },
+            { status: 400 }
+          );
+        }
+
+        try {
+          // Delete the assistant
+          await openai.beta.assistants.del(agentId);
+
+          // Here you would typically delete the assistant from your database
+          // For example: await deleteAssistantFromDatabase(agentId);
+
+          return NextResponse.json({
+            success: true,
+            message: "Assistant deleted successfully",
+          });
+        } catch (deleteError) {
+          console.error("Error deleting assistant:", deleteError);
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Failed to delete assistant: ${deleteError.message}`,
+            },
+            { status: 400 }
+          );
+        }
+
       default:
         return NextResponse.json(
           { success: false, error: "Invalid action" },
