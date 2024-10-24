@@ -118,19 +118,38 @@ export default function AgentPage() {
     }
   };
 
-  const handleSelectAgent = (agent: SynapseAgent | null) => {
+  const handleSelectAgent = async (agent: SynapseAgent | null) => {
     setSelected(agent);
     if (agent) {
       setName(agent.name);
       setDescription(agent.description || "");
       setAnweisungen(agent.anweisungen || "");
       setSelectedKnowledge(agent.knowledgeId || null);
-      // Ensure openai_assistant_id is set
+
       if (!agent.openai_assistant_id) {
-        toast.error(
-          "This agent doesn't have an Assistant ID. Please save it first."
-        );
+        try {
+          const response = await axios.post("/api/agent", {
+            action: "create_assistant",
+            agentId: agent.id,
+            name: agent.name,
+            description: agent.description,
+            instructions: agent.anweisungen,
+          });
+          if (response.data.success) {
+            setSelected({
+              ...agent,
+              openai_assistant_id: response.data.assistant_id,
+            });
+            toast.success("Assistant ID created successfully");
+          } else {
+            toast.error("Failed to create Assistant ID");
+          }
+        } catch (error) {
+          console.error("Error creating Assistant ID:", error);
+          toast.error("An error occurred while creating Assistant ID");
+        }
       }
+      await handleSave(true);
     } else {
       setName("");
       setDescription("");
@@ -142,7 +161,7 @@ export default function AgentPage() {
     setThreadId(null);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (silent: boolean = false) => {
     if (selected) {
       try {
         setIsLoading(true);
@@ -156,7 +175,9 @@ export default function AgentPage() {
           model: selected.model || "gpt-4-turbo-preview",
         });
         if (response.data.success) {
-          toast.success("Agent updated successfully");
+          if (!silent) {
+            toast.success("Agent updated successfully");
+          }
           setSelected({
             ...selected,
             name,
