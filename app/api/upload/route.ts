@@ -12,6 +12,7 @@ const openai = new OpenAI({
 
 const MAX_CHUNK_SIZE = 1 * 1024 * 1024; // 1 MB
 const MAX_RETRIES = 3;
+const MAX_TOKENS_PER_REQUEST = 8000; // Slightly less than the 8192 limit to be safe
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -70,13 +71,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     console.log("All chunks uploaded successfully");
 
-    // Create embeddings
+    // Create embeddings in chunks
     const text = buffer.toString("utf-8");
-    const embeddingResponse = await openai.embeddings.create({
-      model: "text-embedding-ada-002",
-      input: text,
-    });
-    const embedding = embeddingResponse.data[0].embedding;
+    const textChunks = chunkText(text, MAX_TOKENS_PER_REQUEST);
+    const embeddings = [];
+
+    for (let i = 0; i < textChunks.length; i++) {
+      const embeddingResponse = await openai.embeddings.create({
+        model: "text-embedding-ada-002",
+        input: textChunks[i],
+      });
+      embeddings.push(...embeddingResponse.data.map((e) => e.embedding));
+      console.log(`Processed embedding chunk ${i + 1}/${textChunks.length}`);
+    }
+
+    // Combine embeddings (you might want to implement a more sophisticated method)
+    const combinedEmbedding = embeddings
+      .reduce((acc, curr) => {
+        return acc.map((val, idx) => val + curr[idx]);
+      })
+      .map((val) => val / embeddings.length);
 
     // Create vector store
     let vectorStore;
@@ -87,7 +101,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         type: "custom",
         custom_data: {
           file_ids: openAIFileIds,
-          embedding: embedding,
+          embedding: combinedEmbedding,
         },
       });
       console.log("Vector store created:", vectorStore.id);
@@ -123,4 +137,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 500 }
     );
   }
+}
+
+function chunkText(text: string, maxTokens: number): string[] {
+  // This is a simple implementation. You might want to use a more sophisticated tokenizer.
+  const words = text.split(" ");
+  const chunks = [];
+  let currentChunk = "";
+
+  for (const word of words) {
+    if ((currentChunk + word).length > maxTokens) {
+      chunks.push(currentChunk.trim());
+      currentChunk = "";
+    }
+    currentChunk += word + " ";
+  }
+
+  if (currentChunk) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks;
 }
