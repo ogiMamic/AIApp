@@ -21,7 +21,6 @@ export async function POST(request: Request) {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    // Validate the model for all actions that require it
     if (
       ["generate", "create", "update"].includes(action) &&
       !VALID_MODELS.includes(model)
@@ -34,7 +33,6 @@ export async function POST(request: Request) {
 
     switch (action) {
       case "generate":
-        // Use the OpenAI API to get a response
         const completion = await openai.chat.completions.create({
           model: model,
           messages: [
@@ -52,7 +50,6 @@ export async function POST(request: Request) {
         });
 
       case "create":
-        // Create a new assistant
         const newAssistant = await openai.beta.assistants.create({
           name,
           description,
@@ -74,7 +71,6 @@ export async function POST(request: Request) {
           );
         }
 
-        // Update existing assistant
         const updatedAssistant = await openai.beta.assistants.update(agentId, {
           name,
           description,
@@ -91,7 +87,6 @@ export async function POST(request: Request) {
         });
 
       case "list":
-        // Fetch the list of assistants
         const assistants = await openai.beta.assistants.list({
           limit: 100, // Adjust as needed
         });
@@ -110,7 +105,6 @@ export async function POST(request: Request) {
         }
 
         try {
-          // Delete the assistant
           await openai.beta.assistants.del(agentId);
 
           // Here you would typically delete the assistant from your database

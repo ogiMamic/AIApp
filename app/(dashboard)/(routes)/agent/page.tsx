@@ -1,150 +1,82 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import * as z from "zod";
-import {
-  Loader2,
-  UserPlus,
-  AlertCircle,
-  Check,
-  ChevronsUpDown,
-  HelpCircle,
-  Trash2,
-  Plus,
-} from "lucide-react";
+import { Loader2, UserPlus, Trash2, HelpCircle } from "lucide-react";
 import { Heading } from "@/components/heading";
-import { useForm } from "react-hook-form";
-import { formSchema } from "./constants";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
-import { CreateChatCompletionRequestMessage } from "openai/resources/chat";
-import ReactMarkdown from "react-markdown";
-import { Empty } from "@/components/empty";
-import { Loader } from "@/components/loader";
-import { cn } from "@/lib/utils";
-import { UserAvatar } from "@/components/user-avatar";
-import { BotAvatar } from "@/components/bot-avatar";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import ListAgents from "@/components/agents/list-agents";
+import { toast } from "sonner";
 import {
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAgentsStore } from "@/store/agentsStore/useAgentsStore";
-import { useCustomStore } from "@/store/customStore/useCustomStore";
-import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { SynapseAgent } from "@/lib/interfaces/SynapseAgent";
-import { toast } from "sonner";
+
+interface SynapseAgent {
+  id: string;
+  name: string;
+  description: string;
+  anweisungen: string;
+  knowledgeId?: string;
+  model?: string;
+  customCommands?: string[];
+}
+
+interface Knowledge {
+  id: string;
+  name: string;
+}
 
 export default function AgentPage() {
-  const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
-    null
-  );
-  const { knowledges, setKnowledges } = useKnowledgesStore();
-  const [error, setError] = useState<string | null>(null);
-  const [isClientSide, setIsClientSide] = useState(false);
-
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState("");
-  const frameworks = [
-    { value: "datei1", label: "Datei 1" },
-    { value: "datei2", label: "Datei 2" },
-    { value: "datei3", label: "Datei 3" },
-    { value: "datei4", label: "Datei 4" },
-    { value: "datei5", label: "Datei 5" },
-  ];
-
-  const { selectedItems, clearSelectedItems } = useCustomStore();
-  const {
-    agents,
-    selected,
-    addAgent,
-    updateAgent,
-    removeAgent,
-    setAgents,
-    setSelected,
-  } = useAgentsStore();
-
-  const [isDialogOpen, setDialogOpen] = useState(false);
-  const toggleDialog = () => setDialogOpen(!isDialogOpen);
-
-  const router = useRouter();
+  const [agents, setAgents] = useState<SynapseAgent[]>([]);
+  const [knowledges, setKnowledges] = useState<Knowledge[]>([]);
+  const [selected, setSelected] = useState<SynapseAgent | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [anweisungen, setAnweisungen] = useState("");
+  const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
+    null
+  );
   const [customCommand, setCustomCommand] = useState("");
-  const [messages, setMessages] = useState<
-    CreateChatCompletionRequestMessage[]
-  >([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [uploadedFiles, setUploadedFiles] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
-  const [avatar, setAvatar] = useState<string | null>(null);
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      prompt: "",
-    },
-  });
 
   useEffect(() => {
-    setIsClientSide(true);
-    fetchKnowledges();
     fetchAgents();
+    fetchKnowledges();
   }, []);
 
-  useEffect(() => {
-    if (selected) {
-      setName(selected.name);
-      setDescription(selected.description || "");
-      setAnweisungen(selected.anweisungen || "");
-      setSelectedKnowledge(selected.knowledgeId || null);
-      setUploadedFiles(selected.files || []);
-    } else {
-      setName("");
-      setDescription("");
-      setAnweisungen("");
-      setSelectedKnowledge(null);
-      setUploadedFiles([]);
+  const fetchAgents = async () => {
+    try {
+      setIsLoading(true);
+      const response = await axios.post("/api/agent", { action: "list" });
+      if (response.data.success) {
+        setAgents(response.data.assistants);
+      } else {
+        toast.error("Failed to fetch agents");
+      }
+    } catch (error) {
+      console.error("Error fetching agents:", error);
+      toast.error("An error occurred while fetching agents");
+    } finally {
+      setIsLoading(false);
     }
-  }, [selected]);
+  };
 
   const fetchKnowledges = async () => {
     try {
@@ -158,186 +90,6 @@ export default function AgentPage() {
     }
   };
 
-  const fetchAgents = async () => {
-    try {
-      const response = await axios.get("/api/agent");
-      if (Array.isArray(response.data)) {
-        setAgents(response.data);
-      }
-    } catch (error) {
-      console.error("Error fetching agents:", error);
-      toast.error("Failed to fetch agents. Please refresh the page.");
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-    }
-  };
-
-  const uploadFile = async () => {
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("name", file.name);
-    formData.append("description", description);
-    formData.append("anweisungen", anweisungen);
-
-    try {
-      setIsLoading(true);
-      const response = await axios.post("/api/knowledge", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      if (response.data.id) {
-        const newFile = { id: response.data.id, name: file.name };
-        setUploadedFiles((prev) => [...prev, newFile]);
-        setFile(null);
-        if (selected) {
-          updateAgent({
-            ...selected,
-            files: [...(selected.files || []), newFile],
-          });
-        }
-        toast.success("File uploaded successfully");
-      } else {
-        toast.error("Failed to upload file. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      toast.error(
-        "An error occurred while uploading the file. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRemoveFile = async (fileId: string) => {
-    try {
-      setIsLoading(true);
-      await axios.delete(`/api/knowledge`, { data: { id: fileId } });
-      setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
-      if (selected) {
-        updateAgent({
-          ...selected,
-          files: (selected.files || []).filter((file) => file.id !== fileId),
-        });
-      }
-      toast.success("File removed successfully");
-    } catch (error) {
-      console.error("Error removing file:", error);
-      toast.error(
-        "An error occurred while removing the file. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAddCustomCommand = () => {
-    if (customCommand && selected) {
-      updateAgent({
-        ...selected,
-        customCommands: [...(selected.customCommands || []), customCommand],
-      });
-      setCustomCommand("");
-      toast.success("Custom command added successfully");
-    }
-  };
-
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const userMessage: CreateChatCompletionRequestMessage = {
-        role: "user",
-        content: values.prompt,
-      };
-
-      if (selected) {
-        const response = await axios.post("/api/agent", {
-          action: "generate",
-          agentId: selected.id,
-          name: selected.name,
-          description: selected.description,
-          instructions: selected.anweisungen,
-          message: values.prompt,
-          model: selected.model || "gpt-4-turbo-preview",
-          knowledgeId: selected.knowledgeId,
-        });
-
-        if (response.data.success) {
-          setMessages((current) => [
-            ...current,
-            userMessage,
-            { role: "assistant", content: response.data.response },
-          ]);
-        } else {
-          toast.error(
-            response.data.error ||
-              "An error occurred while generating the response."
-          );
-        }
-      } else {
-        toast.error(
-          "No agent selected. Please select an agent before generating."
-        );
-      }
-      form.reset();
-    } catch (error: any) {
-      console.error("Error submitting form:", error);
-      toast.error(
-        "An error occurred while processing your request. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
-      router.refresh();
-    }
-  };
-
-  const handleSave = async () => {
-    if (selected) {
-      try {
-        setIsLoading(true);
-        const response = await axios.put(`/api/agent/${selected.id}`, {
-          name,
-          description,
-          instructions: anweisungen,
-          model: selected.model || "gpt-4-turbo-preview",
-          knowledgeId: selectedKnowledge,
-        });
-        if (response.data) {
-          const updatedAgent = {
-            ...selected,
-            name,
-            description,
-            anweisungen,
-            knowledgeId: selectedKnowledge,
-          };
-          updateAgent(updatedAgent);
-          setSelected(updatedAgent);
-          toast.success("Agent updated successfully");
-          router.refresh();
-        } else {
-          toast.error("Failed to update agent. Please try again.");
-        }
-      } catch (error) {
-        console.error("Error saving agent:", error);
-        toast.error(
-          "An error occurred while saving the agent. Please try again."
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      toast.error("No agent selected. Please select an agent before saving.");
-    }
-  };
-
   const handleSelectAgent = (agent: SynapseAgent | null) => {
     setSelected(agent);
     if (agent) {
@@ -345,35 +97,85 @@ export default function AgentPage() {
       setDescription(agent.description || "");
       setAnweisungen(agent.anweisungen || "");
       setSelectedKnowledge(agent.knowledgeId || null);
-      setUploadedFiles(agent.files || []);
     } else {
       setName("");
       setDescription("");
       setAnweisungen("");
       setSelectedKnowledge(null);
-      setUploadedFiles([]);
     }
-    setMessages([]);
   };
 
-  const handleDeleteAgent = async () => {
+  const handleSave = async () => {
     if (selected) {
       try {
         setIsLoading(true);
-        const response = await axios.delete(`/api/agent/${selected.id}`);
-        if (response.status === 200) {
-          removeAgent(selected.id);
-          setSelected(null);
-          fetchAgents(); // Refresh the list after deletion
-          toast.success("Agent deleted successfully");
+        const response = await axios.post("/api/agent", {
+          action: "update",
+          agentId: selected.id,
+          name,
+          description,
+          instructions: anweisungen,
+          knowledgeId: selectedKnowledge,
+        });
+        if (response.data.success) {
+          toast.success("Agent updated successfully");
+          fetchAgents();
         } else {
-          toast.error("Failed to delete agent. Please try again.");
+          toast.error("Failed to update agent");
+        }
+      } catch (error) {
+        console.error("Error saving agent:", error);
+        toast.error("An error occurred while saving the agent");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleCreate = async () => {
+    try {
+      setIsLoading(true);
+      const response = await axios.post("/api/agent", {
+        action: "create",
+        name,
+        description,
+        instructions: anweisungen,
+        knowledgeId: selectedKnowledge,
+        model: "gpt-4-turbo-preview", // Add the model here
+      });
+      if (response.data.success) {
+        toast.success("Agent created successfully");
+        fetchAgents();
+        handleSelectAgent(null);
+      } else {
+        toast.error("Failed to create agent");
+      }
+    } catch (error) {
+      console.error("Error creating agent:", error);
+      toast.error("An error occurred while creating the agent");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (selected) {
+      try {
+        setIsLoading(true);
+        const response = await axios.post("/api/agent", {
+          action: "delete",
+          agentId: selected.id,
+        });
+        if (response.data.success) {
+          toast.success("Agent deleted successfully");
+          fetchAgents();
+          handleSelectAgent(null);
+        } else {
+          toast.error("Failed to delete agent");
         }
       } catch (error) {
         console.error("Error deleting agent:", error);
-        toast.error(
-          "An error occurred while deleting the agent. Please try again."
-        );
+        toast.error("An error occurred while deleting the agent");
       } finally {
         setIsLoading(false);
         setIsConfirmDeleteOpen(false);
@@ -381,78 +183,17 @@ export default function AgentPage() {
     }
   };
 
-  const handleCreateAgent = async () => {
-    try {
-      setError(null);
-      setIsLoading(true);
-      const response = await axios.post("/api/agent", {
-        name,
-        instructions: anweisungen,
-        tools: [], // Add tools if needed
-        tool_resources: [], // Add tool resources if needed
-        model: "gpt-4-turbo-preview",
-      });
-
-      if (response.data.success) {
-        const newAgent = {
-          id: response.data.assistant.id,
-          name,
-          description,
-          anweisungen,
-          knowledgeId: selectedKnowledge,
-          model: "gpt-4-turbo-preview",
-          openai_assistant_id: response.data.assistant.id,
-        };
-        addAgent(newAgent);
-        setSelected(newAgent);
-        fetchAgents(); // Refresh the list after creation
-        toast.success("Agent created successfully");
-      } else {
-        toast.error("Failed to create agent.");
-      }
-    } catch (error) {
-      console.error("Error creating agent:", error);
-      toast.error(
-        "An error occurred while creating the agent. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateAction = () => {
-    if (!selected || selectedItems.length === 0) {
-      setError("No agent selected or no items selected");
-      return;
-    }
-
-    const actionToAdd = selectedItems[0].label;
-    const updatedActions = selected.actions
-      ? [...selected.actions, actionToAdd]
-      : [actionToAdd];
-
-    updateAgent({
-      ...selected,
-      actions: updatedActions,
-    });
-
-    clearSelectedItems();
-  };
-
-  const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatar(reader.result as string);
+  const handleAddCustomCommand = () => {
+    if (customCommand && selected) {
+      const updatedAgent = {
+        ...selected,
+        customCommands: [...(selected.customCommands || []), customCommand],
       };
-      reader.readAsDataURL(file);
+      setSelected(updatedAgent);
+      setCustomCommand("");
+      toast.success("Custom command added successfully");
     }
   };
-
-  if (!isClientSide) {
-    return null;
-  }
 
   return (
     <div className="container mx-auto p-4">
@@ -465,7 +206,28 @@ export default function AgentPage() {
       />
       <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="col-span-1 lg:col-span-3">
-          <ListAgents agents={agents} onSelectAgent={handleSelectAgent} />
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="text-lg font-semibold mb-2">Agent List</h3>
+              {agents.map((agent) => (
+                <Button
+                  key={agent.id}
+                  variant={selected?.id === agent.id ? "secondary" : "ghost"}
+                  className="w-full justify-start mb-1"
+                  onClick={() => handleSelectAgent(agent)}
+                >
+                  {agent.name}
+                </Button>
+              ))}
+              <Button
+                className="w-full mt-4 bg-gradient-to-r from-blue-500 to-teal-400 hover:from-blue-600 hover:to-teal-500 text-white"
+                onClick={() => handleSelectAgent(null)}
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add New Agent
+              </Button>
+            </CardContent>
+          </Card>
         </div>
         <div className="col-span-1 lg:col-span-9">
           <Card className="h-full">
@@ -543,46 +305,6 @@ export default function AgentPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="fileUpload">Upload Document</Label>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      id="fileUpload"
-                      type="file"
-                      onChange={handleFileChange}
-                    />
-                    <Button onClick={uploadFile} disabled={!file || isLoading}>
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Upload"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                {uploadedFiles.length > 0 && (
-                  <div>
-                    <Label>Uploaded Files</Label>
-                    <ul className="mt-2 space-y-2">
-                      {uploadedFiles.map((file) => (
-                        <li
-                          key={file.id}
-                          className="flex items-center justify-between"
-                        >
-                          <span>{file.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveFile(file.id)}
-                            disabled={isLoading}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                <div>
                   <Label htmlFor="customCommand">Add Custom Command</Label>
                   <div className="flex items-center space-x-2">
                     <Input
@@ -595,7 +317,6 @@ export default function AgentPage() {
                       onClick={handleAddCustomCommand}
                       disabled={!customCommand || !selected}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
                       Add
                     </Button>
                   </div>
@@ -615,15 +336,16 @@ export default function AgentPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() =>
-                                updateAgent({
+                              onClick={() => {
+                                const updatedCommands =
+                                  selected.customCommands?.filter(
+                                    (_, i) => i !== index
+                                  );
+                                setSelected({
                                   ...selected,
-                                  customCommands:
-                                    selected.customCommands.filter(
-                                      (_, i) => i !== index
-                                    ),
-                                })
-                              }
+                                  customCommands: updatedCommands,
+                                });
+                              }}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -632,44 +354,6 @@ export default function AgentPage() {
                       </ul>
                     </div>
                   )}
-                <div>
-                  <Label htmlFor="avatar">Avatar</Label>
-                  <div className="mt-2 flex items-center gap-x-3">
-                    {avatar ? (
-                      <img
-                        src={avatar}
-                        alt="Agent Avatar"
-                        className="h-12 w-12 rounded-full"
-                      />
-                    ) : (
-                      <svg
-                        className="h-12 w-12 text-gray-300"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarUpload}
-                      className="hidden"
-                      id="avatar-upload"
-                    />
-                    <label
-                      htmlFor="avatar-upload"
-                      className="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 cursor-pointer"
-                    >
-                      Change
-                    </label>
-                  </div>
-                </div>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end space-x-2">
@@ -682,7 +366,7 @@ export default function AgentPage() {
                   )}
                 </Button>
               ) : (
-                <Button onClick={handleCreateAgent} disabled={isLoading}>
+                <Button onClick={handleCreate} disabled={isLoading}>
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
@@ -694,76 +378,6 @@ export default function AgentPage() {
           </Card>
         </div>
       </div>
-      <Card className="mt-4">
-        <CardContent className="p-4">
-          <h2 className="text-xl font-semibold mb-4">Test Agent</h2>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
-              <FormField
-                name="prompt"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        disabled={isLoading || !selected}
-                        placeholder={
-                          selected
-                            ? "Ask your agent a question..."
-                            : "Select an agent to test"
-                        }
-                        {...field}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <Button
-                type="submit"
-                disabled={isLoading || !selected}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  "Generate"
-                )}
-              </Button>
-            </form>
-          </Form>
-          {isLoading && (
-            <div className="p-4 rounded-lg w-full flex items-center justify-center bg-muted">
-              <Loader />
-            </div>
-          )}
-          {messages.length === 0 && !isLoading && (
-            <Empty
-              label={
-                selected
-                  ? "No conversation started."
-                  : "Select an agent to start testing."
-              }
-            />
-          )}
-          <div className="space-y-4 mt-4 max-h-[calc(100vh-400px)] overflow-y-auto">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={cn(
-                  "p-4 w-full flex items-start gap-x-4 rounded-lg",
-                  message.role === "user"
-                    ? "bg-white border border-black/10"
-                    : "bg-muted"
-                )}
-              >
-                {message.role === "user" ? <UserAvatar /> : <BotAvatar />}
-                <ReactMarkdown className="text-sm overflow-hidden leading-7">
-                  {message.content || ""}
-                </ReactMarkdown>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
       <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -780,9 +394,8 @@ export default function AgentPage() {
             <ol className="list-decimal list-inside mt-2">
               <li>Defining the agent's name and description</li>
               <li>Providing instructions for the agent's behavior</li>
-              <li>Selecting or uploading a knowledge base</li>
-              <li>Creating custom actions for the agent</li>
-              <li>Testing the agent's responses</li>
+              <li>Selecting a knowledge base</li>
+              <li>Creating custom commands for the agent</li>
             </ol>
             These processes help in creating a tailored AI assistant that can
             efficiently handle specific tasks or provide accurate information in
@@ -811,7 +424,7 @@ export default function AgentPage() {
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDeleteAgent}
+              onClick={handleDelete}
               disabled={isLoading}
             >
               {isLoading ? (
