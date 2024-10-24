@@ -1,11 +1,11 @@
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-}
-generator client {
-  provider = "prisma-client-js"
 }
 
 model UserApiLimit {
@@ -26,13 +26,20 @@ model Document {
 }
 
 model Agent {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  instructions String?
+  id                String   @id @default(cuid())
+  name              String
+  description       String?
+  instructions      String?
   openaiAssistantId String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model threads {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  messages   Json?
 }
 
 model File {

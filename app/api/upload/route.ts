@@ -12,7 +12,6 @@ const openai = new OpenAI({
 
 const MAX_CHUNK_SIZE = 1 * 1024 * 1024; // 1 MB
 const MAX_RETRIES = 3;
-const MAX_TOKENS_PER_REQUEST = 8000; // Slightly less than the 8192 limit to be safe
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -93,30 +92,43 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // Save file information to database
-    const savedFile = await prisma.file.create({
-      data: {
-        name: file.name,
-        openAIFileIds: openAIFileIds,
-        vectorStoreId: vectorStore.id,
-        size: totalSize,
-        uploadedAt: new Date(),
-      },
-    });
+    try {
+      const savedFile = await prisma.file.create({
+        data: {
+          name: file.name,
+          openAIFileIds: openAIFileIds,
+          vectorStoreId: vectorStore.id,
+          size: totalSize,
+          uploadedAt: new Date(),
+        },
+      });
 
-    return NextResponse.json(
-      {
-        success: true,
-        fileId: savedFile.id,
-        openAIFileIds: openAIFileIds,
-        vectorStoreId: vectorStore.id,
-      },
-      { status: 200 }
-    );
+      return NextResponse.json(
+        {
+          success: true,
+          fileId: savedFile.id,
+          openAIFileIds: openAIFileIds,
+          vectorStoreId: vectorStore.id,
+        },
+        { status: 200 }
+      );
+    } catch (dbError) {
+      console.error("Database error:", dbError);
+      // If database operation fails, we should clean up the created vector store
+      try {
+        await openai.beta.vectorStores.del(vectorStore.id);
+      } catch (cleanupError) {
+        console.error("Error cleaning up vector store:", cleanupError);
+      }
+      throw dbError;
+    }
   } catch (error) {
     console.error("[UPLOAD_ERROR]", error);
     return NextResponse.json(
       { error: "Internal error", details: error.message },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
