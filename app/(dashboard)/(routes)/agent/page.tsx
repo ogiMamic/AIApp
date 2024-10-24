@@ -125,6 +125,12 @@ export default function AgentPage() {
       setDescription(agent.description || "");
       setAnweisungen(agent.anweisungen || "");
       setSelectedKnowledge(agent.knowledgeId || null);
+      // Ensure openai_assistant_id is set
+      if (!agent.openai_assistant_id) {
+        toast.error(
+          "This agent doesn't have an Assistant ID. Please save it first."
+        );
+      }
     } else {
       setName("");
       setDescription("");
@@ -293,9 +299,9 @@ export default function AgentPage() {
         messages: newMessages,
         agent: {
           id: selected.id,
-          name: selected.name,
-          description: selected.description,
-          instructions: selected.anweisungen,
+          name: name, // Use current state value
+          description: description, // Use current state value
+          instructions: anweisungen, // Use current state value
           openai_assistant_id: selected.openai_assistant_id,
         },
         threadId: threadId,
