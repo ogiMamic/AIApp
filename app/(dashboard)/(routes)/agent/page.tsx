@@ -1,8 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { Loader2, UserPlus, Trash2, HelpCircle } from "lucide-react";
+import {
+  Loader2,
+  UserPlus,
+  Trash2,
+  HelpCircle,
+  Send,
+  Paperclip,
+} from "lucide-react";
 import { Heading } from "@/components/heading";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -25,6 +32,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BotAvatar } from "@/components/bot-avatar";
+import { UserAvatar } from "@/components/user-avatar";
+import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface SynapseAgent {
   id: string;
@@ -34,6 +45,7 @@ interface SynapseAgent {
   knowledgeId?: string;
   model?: string;
   customCommands?: string[];
+  openai_assistant_id?: string;
 }
 
 interface Knowledge {
@@ -41,7 +53,13 @@ interface Knowledge {
   name: string;
 }
 
+interface IMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export default function AgentPage() {
+  const router = useRouter();
   const [agents, setAgents] = useState<SynapseAgent[]>([]);
   const [knowledges, setKnowledges] = useState<Knowledge[]>([]);
   const [selected, setSelected] = useState<SynapseAgent | null>(null);
@@ -55,6 +73,16 @@ export default function AgentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+
+  const [testQuestion, setTestQuestion] = useState("");
+  const [messages, setMessages] = useState<IMessage[]>([]);
+  const [isTestingAgent, setIsTestingAgent] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [openAIFileIds, setOpenAIFileIds] = useState<string[]>([]);
+  const [vectorStoreId, setVectorStoreId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchAgents();
@@ -103,6 +131,9 @@ export default function AgentPage() {
       setAnweisungen("");
       setSelectedKnowledge(null);
     }
+    setTestQuestion("");
+    setMessages([]);
+    setThreadId(null);
   };
 
   const handleSave = async () => {
@@ -116,9 +147,18 @@ export default function AgentPage() {
           description,
           instructions: anweisungen,
           knowledgeId: selectedKnowledge,
+          model: selected.model || "gpt-4-turbo-preview",
         });
         if (response.data.success) {
           toast.success("Agent updated successfully");
+          setSelected({
+            ...selected,
+            name,
+            description,
+            anweisungen,
+            knowledgeId: selectedKnowledge,
+            openai_assistant_id: response.data.assistant.id,
+          });
           fetchAgents();
         } else {
           toast.error("Failed to update agent");
@@ -141,12 +181,12 @@ export default function AgentPage() {
         description,
         instructions: anweisungen,
         knowledgeId: selectedKnowledge,
-        model: "gpt-4-turbo-preview", // Add the model here
+        model: "gpt-4-turbo-preview",
       });
       if (response.data.success) {
         toast.success("Agent created successfully");
+        setSelected(response.data.assistant);
         fetchAgents();
-        handleSelectAgent(null);
       } else {
         toast.error("Failed to create agent");
       }
@@ -195,6 +235,102 @@ export default function AgentPage() {
     }
   };
 
+  const handleNewChat = () => {
+    setThreadId(null);
+    setMessages([]);
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await axios.post("/api/upload", formData);
+      if (response.data.success) {
+        setOpenAIFileIds([...openAIFileIds, response.data.fileId]);
+        setVectorStoreId(response.data.vectorStoreId);
+        toast.success("File uploaded successfully");
+      } else {
+        setUploadError("Failed to upload file");
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setUploadError("An error occurred while uploading the file");
+    }
+  };
+
+  const handleTestAgent = async () => {
+    if (!selected || !testQuestion) return;
+
+    setIsTestingAgent(true);
+    try {
+      if (!threadId) {
+        handleNewChat();
+      }
+
+      const userMessage: IMessage = {
+        role: "user",
+        content: testQuestion,
+      };
+
+      const newMessages = [...messages, userMessage];
+      setMessages(newMessages);
+
+      if (!selected.openai_assistant_id) {
+        toast.error(
+          "Agent or Assistant ID is missing. Please save the agent first."
+        );
+        return;
+      }
+
+      if (file && openAIFileIds.length === 0) {
+        await handleUpload();
+      }
+
+      const response = await axios.post("/api/conversation", {
+        messages: newMessages,
+        agent: {
+          id: selected.id,
+          name: selected.name,
+          description: selected.description,
+          instructions: selected.anweisungen,
+          openai_assistant_id: selected.openai_assistant_id,
+        },
+        threadId: threadId,
+        knowledge_id: selectedKnowledge,
+        openAIFileIds: openAIFileIds,
+        vectorStoreId: vectorStoreId,
+        fileAnalysis: file ? true : false,
+      });
+
+      if (response.data.threadId) {
+        setThreadId(response.data.threadId);
+      }
+
+      const botMessage: IMessage =
+        response.data.conversation[response.data.conversation.length - 1];
+      const updatedMessages = [...newMessages, botMessage];
+      setMessages(updatedMessages);
+
+      setTestQuestion("");
+      setFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error: any) {
+      console.error("Error testing agent:", error);
+      setUploadError(
+        error.response?.data?.error ||
+          "An error occurred during the conversation"
+      );
+    } finally {
+      setIsTestingAgent(false);
+      router.refresh();
+    }
+  };
+
   return (
     <div className="container mx-auto p-4">
       <Heading
@@ -229,7 +365,7 @@ export default function AgentPage() {
             </CardContent>
           </Card>
         </div>
-        <div className="col-span-1 lg:col-span-9">
+        <div className="col-span-1 lg:col-span-6">
           <Card className="h-full">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-4">
@@ -375,6 +511,76 @@ export default function AgentPage() {
                 </Button>
               )}
             </CardFooter>
+          </Card>
+        </div>
+
+        <div className="col-span-1 lg:col-span-3">
+          <Card className="h-full">
+            <CardContent className="p-4">
+              <h3 className="text-lg font-semibold mb-2">Test Agent</h3>
+              {selected ? (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="testQuestion">Ask a question</Label>
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        id="testQuestion"
+                        value={testQuestion}
+                        onChange={(e) => setTestQuestion(e.target.value)}
+                        placeholder="Enter your question here"
+                      />
+                      <Button
+                        onClick={handleTestAgent}
+                        disabled={isTestingAgent || !testQuestion.trim()}
+                      >
+                        {isTestingAgent ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="fileUpload">Upload File (optional)</Label>
+                    <Input
+                      id="fileUpload"
+                      type="file"
+                      onChange={(e) => setFile(e.target.files?.[0] || null)}
+                      ref={fileInputRef}
+                    />
+                  </div>
+                  <div className="space-y-4 mt-4">
+                    {messages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={cn(
+                          "p-4 rounded-lg flex items-start space-x-4",
+                          message.role === "user" ? "bg-blue-50" : "bg-green-50"
+                        )}
+                      >
+                        {message.role === "user" ? (
+                          <UserAvatar />
+                        ) : (
+                          <BotAvatar />
+                        )}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium mb-1">
+                            {message.role === "user" ? "You" : "AI"}
+                          </p>
+                          <p className="text-sm">{message.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {uploadError && (
+                    <p className="text-red-500 text-sm mt-2">{uploadError}</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">Select an agent to test</p>
+              )}
+            </CardContent>
           </Card>
         </div>
       </div>
