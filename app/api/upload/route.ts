@@ -97,8 +97,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
       vectorStore = await openai.beta.vectorStores.create({
         name: `VectorStore_${file.name}`,
-        description: `Vector store for ${file.name}`,
-        type: "custom",
         custom_data: {
           file_ids: openAIFileIds,
           embedding: combinedEmbedding,
@@ -107,6 +105,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log("Vector store created:", vectorStore.id);
     } catch (error) {
       console.error("Error creating vector store:", error);
+      if (error instanceof OpenAI.APIError) {
+        console.error(
+          "OpenAI API Error:",
+          error.status,
+          error.message,
+          error.code
+        );
+      }
       throw error;
     }
 
