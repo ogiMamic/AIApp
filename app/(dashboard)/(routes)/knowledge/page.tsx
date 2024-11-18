@@ -6,16 +6,15 @@ import { DatabaseZap } from "lucide-react";
 import { Heading } from "@/components/headling";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { CreateChatCompletionRequestMessage } from "openai/resources/chat";
 import ListKnowledge from "@/components/knowledges/list-knowledges";
 import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import { useCustomStore } from "@/store/customStore/useCustomStore";
-import { DataTable } from "../documents/data-table";
-import { ColumnDef } from "@tanstack/react-table";
+import { createColumns } from "./_components/columns";
+import { DataTable } from "./_components/data-table";
 
-type KnowledgeDocument = {
+export type KnowledgeDocument = {
   id: string;
   name: string;
   description: string;
@@ -222,56 +221,13 @@ const KnowledgePage = () => {
     }
   };
 
-  const columnsWithActions: ColumnDef<KnowledgeDocument>[] = [
-    {
-      id: "select",
-      header: ({ table }: { table: any }) => (
-        <input
-          type="checkbox"
-          checked={table.getIsAllPageRowsSelected()}
-          indeterminate={table.getIsSomePageRowsSelected()}
-          onChange={table.getToggleAllPageRowsSelectedHandler()}
-        />
-      ),
-      cell: ({ row }: { row: any }) => (
-        <div className="px-1">
-          <input
-            type="checkbox"
-            checked={row.getIsSelected()}
-            disabled={!row.getCanSelect()}
-            onChange={row.getToggleSelectedHandler()}
-            indeterminate={row.getIsSomeSelected()}
-          />
-        </div>
-      ),
-    },
-    { id: "name", header: "Name", accessorKey: "name" },
-    { id: "description", header: "Description", accessorKey: "description" },
-    { id: "anweisungen", header: "Anweisungen", accessorKey: "anweisungen" },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => {
-        const document = row.original;
-        return (
-          <Button
-            onClick={() => handleDeleteDocument(document.id)}
-            variant="destructive"
-            size="sm"
-          >
-            Delete
-          </Button>
-        );
-      },
-    },
-  ];
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       handleDropdownSelect("uploadDocument", file);
     }
   };
+  const columns = createColumns(handleDeleteDocument)
 
   return (
     <>
@@ -297,8 +253,7 @@ const KnowledgePage = () => {
             ) : (
               <div className="mt-4 grid grid-cols-1 gap-4">
                 <DataTable
-                  className={`w-full`}
-                  columns={columnsWithActions}
+                  columns={columns}
                   data={tableData}
                 />
                 <div className="mt-4 flex flex-col lg:flex-row items-end lg:items-center justify-end gap-4">

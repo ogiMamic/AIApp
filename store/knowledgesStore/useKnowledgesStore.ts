@@ -2,6 +2,7 @@ import { SynapseKnowledge } from "@/lib/interfaces/SynapseKnowledge";
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import { supabase } from "@/lib/supabaseClient";
+import { SynapseAgent } from "@/lib/interfaces/SynapseAgent";
 
 interface State {
   userId: string | null;
@@ -15,6 +16,7 @@ interface Knowledge {
   description: string;
   anweisungen: string;
   parentId?: string;
+  agents: SynapseAgent[];
 }
 
 interface KnowledgesStore {

@@ -1,3 +1,5 @@
+import { SynapseAgent } from "./SynapseAgent";
+
 export interface SynapseKnowledge {
   id: string;
   name: string;
