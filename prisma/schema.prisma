@@ -3,50 +3,41 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-model UserApiLimit {
+model User {
   id        String   @id @default(cuid())
-  userId    String   @unique
-  count     Int      @default(0)
+  email     String   @unique
+  name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model Document {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  content     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model File {
+  id        String   @id @default(cuid())
+  name      String
+  size      Int
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Agent {
-  id                String   @id @default(cuid())
-  name              String
-  description       String?
-  instructions      String?
-  openaiAssistantId String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  name                String
+  description         String?
+  instructions        String?
+  openai_assistant_id String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model threads {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  messages   Json?
-}
-
-model File {
-  id             String   @id @default(cuid())
-  name           String
-  openAIFileIds  String[]
-  vectorStoreId  String
-  size           Int
-  uploadedAt     DateTime @default(now())
+model Knowledge {
+  id        String   @id @default(cuid())
+  name      String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

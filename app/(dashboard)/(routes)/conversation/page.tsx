@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import * as z from "zod";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Heading } from "@/components/heading";
+import { Heading } from "@/components/headling";
 import {
   Select,
   SelectContent,
@@ -37,18 +37,13 @@ import {
   Paperclip,
   Send,
 } from "lucide-react";
+import { formSchema } from "./constants";
 import { useChatHistoryStore } from "@/store/chatHistory/useChatHistoryStore";
 import { IMessage } from "@/lib/interfaces/IMessage";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
-const formSchema = z.object({
-  prompt: z.string().min(1, { message: "Prompt is required." }),
-  knowledge: z.string().optional(),
-  agent: z.string().optional(),
-});
-
-export default function ConversationPage() {
+const ConversationPage = () => {
   const router = useRouter();
   const {
     histories,
@@ -85,11 +80,6 @@ export default function ConversationPage() {
 
   const methods = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      prompt: "",
-      knowledge: "",
-      agent: "",
-    },
   });
 
   const {
@@ -134,6 +124,10 @@ export default function ConversationPage() {
       window.removeEventListener("focus", handleFocus);
     };
   }, [fetchKnowledges, fetchAgents]);
+
+  useEffect(() => {
+    console.log("Current knowledges:", knowledges);
+  }, [knowledges]);
 
   useEffect(() => {
     if (selectedChatId) {
@@ -308,9 +302,9 @@ export default function ConversationPage() {
   const openAIAgents = agents.filter((agent) => agent.openai_assistant_id);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex">
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-200 p-4">
+        <header className="bg-white p-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <Heading
               title="Conversation"
@@ -326,13 +320,12 @@ export default function ConversationPage() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
               <Menu className="h-6 w-6" />
-              <span className="sr-only">Toggle sidebar</span>
             </Button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto">
-          <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        <main className="flex-1">
+          <div className="max-w-4xl mx-auto px-8 py-0 space-y-4">
             <FormProvider {...methods}>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div className="flex space-x-4">
@@ -431,7 +424,6 @@ export default function ConversationPage() {
                     ) : (
                       <Paperclip className="h-4 w-4" />
                     )}
-                    <span className="sr-only">Attach file</span>
                   </Button>
                   <Button type="submit" disabled={isLoading || uploading}>
                     {isLoading ? (
@@ -439,7 +431,6 @@ export default function ConversationPage() {
                     ) : (
                       <Send className="h-4 w-4" />
                     )}
-                    <span className="sr-only">Send message</span>
                   </Button>
                 </div>
               </form>
@@ -472,7 +463,7 @@ export default function ConversationPage() {
             <div className="space-y-4">
               {isLoading && (
                 <div className="p-8 rounded-lg w-full flex items-center justify-center bg-muted">
-                  <Loader className="h-8 w-8 animate-spin" />
+                  <Loader />
                 </div>
               )}
               {messages.length === 0 && !isLoading && (
@@ -505,14 +496,14 @@ export default function ConversationPage() {
 
       <div
         className={cn(
-          "w-80 bg-white h-full overflow-y-auto",
+          "w-80 bg-white h-full",
           "fixed inset-y-0 right-0 z-50 transition-transform duration-200 ease-in-out",
           sidebarOpen ? "translate-x-0" : "translate-x-full",
           "lg:static lg:translate-x-0",
-          "shadow-xl border-l border-gray-200"
+          "shadow-xl mr-4 border border-gray-200 rounded-xl"
         )}
       >
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 flex flex-col">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Chat History</h3>
             <Button size="sm" onClick={handleNewChat}>
@@ -546,8 +537,8 @@ export default function ConversationPage() {
             />
             <label htmlFor="notifications">Enable notifications</label>
           </div>
-          <ul className="space-y-2">
-            {filteredHistories.map((history) => (
+          <ul className="space-y-2 flex-grow">
+            {filteredHistories.map((history, index) => (
               <li
                 key={history.id}
                 className={cn(
@@ -565,7 +556,7 @@ export default function ConversationPage() {
                   <div className="flex-1 mr-2">
                     <p className="text-sm font-medium truncate">
                       {history.messages[0]?.content.slice(0, 30) ||
-                        "Empty chat"}
+                        `Chat ${index + 1}`}
                     </p>
                     <p className="text-xs text-gray-500">
                       {new Date(parseInt(history.id)).toLocaleDateString()}
@@ -586,9 +577,6 @@ export default function ConversationPage() {
                             : "text-gray-500"
                         )}
                       />
-                      <span className="sr-only">
-                        {history.favorite ? "Unfavorite" : "Favorite"}
-                      </span>
                     </button>
                     {history.deleted ? (
                       <button
@@ -598,7 +586,6 @@ export default function ConversationPage() {
                         }}
                       >
                         <RefreshCw className="w-4 h-4 text-green-500" />
-                        <span className="sr-only">Restore</span>
                       </button>
                     ) : (
                       <>
@@ -608,8 +595,7 @@ export default function ConversationPage() {
                             removeHistory(history.id);
                           }}
                         >
-                          <Trash className="w-4 h-4 text-red-500" />
-                          <span className="sr-only">Delete</span>
+                          <Trash className="w-4 text-red-500" />
                         </button>
                         <button
                           onClick={(e) => {
@@ -618,7 +604,6 @@ export default function ConversationPage() {
                           }}
                         >
                           <Share2 className="w-4 h-4 text-blue-500" />
-                          <span className="sr-only">Share</span>
                         </button>
                       </>
                     )}
@@ -631,4 +616,6 @@ export default function ConversationPage() {
       </div>
     </div>
   );
-}
+};
+
+export default ConversationPage;

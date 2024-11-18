@@ -1,10 +1,38 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import prismadb from "@/lib/prismadb";
+import { auth } from "@clerk/nextjs";
 
 const VALID_MODELS = ["gpt-3.5-turbo", "gpt-4-turbo-preview", "gpt-4"];
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export async function GET() {
+  try {
+    const { userId } = auth();
+
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const agents = await prismadb.agent.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return NextResponse.json(agents);
+  } catch (error) {
+    console.log("[AGENTS_GET]", error);
+    return new NextResponse("Internal Error", { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
+    const { userId } = auth();
     const content = await request.json();
     const {
       action,
@@ -17,9 +45,9 @@ export async function POST(request: Request) {
       knowledgeId,
     } = content;
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
 
     if (
       ["generate", "create", "update"].includes(action) &&
@@ -58,10 +86,16 @@ export async function POST(request: Request) {
           tools: [{ type: "code_interpreter" }, { type: "file_search" }],
         });
 
-        // Here you would typically save the assistant details to your database
-        // For example: await saveAssistantToDatabase(newAssistant);
+        const agent = await prismadb.agent.create({
+          data: {
+            name,
+            description,
+            instructions,
+            openai_assistant_id: newAssistant.id,
+          },
+        });
 
-        return NextResponse.json({ success: true, assistant: newAssistant });
+        return NextResponse.json({ success: true, agent });
 
       case "update":
         if (!agentId) {
@@ -71,29 +105,52 @@ export async function POST(request: Request) {
           );
         }
 
-        const updatedAssistant = await openai.beta.assistants.update(agentId, {
-          name,
-          description,
-          instructions,
-          model,
+        const existingAgent = await prismadb.agent.findUnique({
+          where: { id: agentId },
         });
 
-        // Here you would typically update the assistant details in your database
-        // For example: await updateAssistantInDatabase(updatedAssistant);
+        if (!existingAgent) {
+          return NextResponse.json(
+            { success: false, error: "Agent not found" },
+            { status: 404 }
+          );
+        }
+
+        const updatedAssistant = await openai.beta.assistants.update(
+          existingAgent.openai_assistant_id,
+          {
+            name,
+            description,
+            instructions,
+            model,
+          }
+        );
+
+        const updatedAgent = await prismadb.agent.update({
+          where: { id: agentId },
+          data: {
+            name,
+            description,
+            instructions,
+            openai_assistant_id: updatedAssistant.id,
+          },
+        });
 
         return NextResponse.json({
           success: true,
-          assistant: updatedAssistant,
+          agent: updatedAgent,
         });
 
       case "list":
-        const assistants = await openai.beta.assistants.list({
-          limit: 100, // Adjust as needed
+        const agents = await prismadb.agent.findMany({
+          orderBy: {
+            createdAt: "desc",
+          },
         });
 
         return NextResponse.json({
           success: true,
-          assistants: assistants.data,
+          agents,
         });
 
       case "delete":
@@ -105,21 +162,35 @@ export async function POST(request: Request) {
         }
 
         try {
-          await openai.beta.assistants.del(agentId);
+          const agentToDelete = await prismadb.agent.findUnique({
+            where: { id: agentId },
+          });
 
-          // Here you would typically delete the assistant from your database
-          // For example: await deleteAssistantFromDatabase(agentId);
+          if (!agentToDelete) {
+            return NextResponse.json(
+              { success: false, error: "Agent not found" },
+              { status: 404 }
+            );
+          }
+
+          if (agentToDelete.openai_assistant_id) {
+            await openai.beta.assistants.del(agentToDelete.openai_assistant_id);
+          }
+
+          await prismadb.agent.delete({
+            where: { id: agentId },
+          });
 
           return NextResponse.json({
             success: true,
-            message: "Assistant deleted successfully",
+            message: "Agent deleted successfully",
           });
         } catch (deleteError) {
-          console.error("Error deleting assistant:", deleteError);
+          console.error("Error deleting agent:", deleteError);
           return NextResponse.json(
             {
               success: false,
-              error: `Failed to delete assistant: ${deleteError.message}`,
+              error: `Failed to delete agent: ${deleteError.message}`,
             },
             { status: 400 }
           );
