@@ -3,6 +3,38 @@ import OpenAI from "openai";
 
 const VALID_MODELS = ["gpt-3.5-turbo", "gpt-4-turbo-preview", "gpt-4"];
 
+export async function GET() {
+  try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const assistants = await openai.beta.assistants.list({
+      limit: 100, // Прилагодите по потреби
+    });
+
+    return NextResponse.json({
+      success: true,
+      agents: assistants.data,
+    });
+  } catch (error) {
+    console.error("Error fetching agents:", error);
+
+    let errorMessage = "An unknown error occurred while fetching agents";
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === "string") {
+      errorMessage = error;
+    }
+
+    return NextResponse.json(
+      { success: false, error: errorMessage },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const content = await request.json();
@@ -116,10 +148,20 @@ export async function POST(request: Request) {
           });
         } catch (deleteError) {
           console.error("Error deleting assistant:", deleteError);
+
+          let errorMessage =
+            "An unknown error occurred while deleting the assistant";
+
+          if (deleteError instanceof Error) {
+            errorMessage = deleteError.message;
+          } else if (typeof deleteError === "string") {
+            errorMessage = deleteError;
+          }
+
           return NextResponse.json(
             {
               success: false,
-              error: `Failed to delete assistant: ${deleteError.message}`,
+              error: `Failed to delete assistant: ${errorMessage}`,
             },
             { status: 400 }
           );
@@ -133,8 +175,17 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error("Error in agent API:", error);
+
+    let errorMessage = "An unknown error occurred";
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === "string") {
+      errorMessage = error;
+    }
+
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: errorMessage },
       { status: 500 }
     );
   }

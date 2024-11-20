@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
+import { OpenAIEmbeddings } from "@langchain/openai";
+import { createClient } from "@supabase/supabase-js";
+import { getAuth } from "@clerk/nextjs/server";
 
-const prisma = new PrismaClient();
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 const MAX_CHUNK_SIZE = 1 * 1024 * 1024; // 1 MB
 const MAX_RETRIES = 3;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!req.body) {
       return NextResponse.json({ error: "No data provided" }, { status: 400 });
     }
@@ -23,6 +34,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const file = formData.get("file") as File;
     if (!file) {
+      console.log("nema fajla nikakvog");
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
@@ -45,8 +57,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       while (retries < MAX_RETRIES) {
         try {
           console.log(`Uploading chunk ${i + 1}/${chunks}`);
+          const chunk = buffer.subarray(start, end);
+          const blob = new Blob([chunk]);
+          const chunkFile = new File([blob], `chunk_${i + 1}_${file.name}`, {
+            type: "application/octet-stream",
+          });
           const openAIFile = await openai.files.create({
-            file: fs.createReadStream(tempFilePath, { start, end }),
+            file: chunkFile,
             purpose: "assistants",
           });
           openAIFileIds.push(openAIFile.id);
@@ -91,17 +108,39 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       throw error;
     }
 
+    const embeddings = new OpenAIEmbeddings({
+      openAIApiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const fileContent = buffer.toString("utf-8");
+    const embeddingVector = await embeddings.embedQuery(fileContent);
+
     // Save file information to database
     try {
-      const savedFile = await prisma.file.create({
-        data: {
-          name: file.name,
-          openAIFileIds: openAIFileIds,
-          vectorStoreId: vectorStore.id,
-          size: totalSize,
-          uploadedAt: new Date(),
-        },
-      });
+      const { data: savedFile, error } = await supabase
+        .from("test_tabela")
+        .insert({
+          content: fileContent,
+          metadata: JSON.stringify({
+            name: file.name,
+            openAIFileIds: openAIFileIds,
+            vectorStoreId: vectorStore.id,
+            size: totalSize,
+          }),
+          embedding: embeddingVector,
+          userId: userId,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase insert error:", error);
+        throw error;
+      }
+
+      if (!savedFile) {
+        throw new Error("File was not saved to the database");
+      }
 
       return NextResponse.json(
         {
@@ -124,11 +163,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   } catch (error) {
     console.error("[UPLOAD_ERROR]", error);
-    return NextResponse.json(
-      { error: "Internal error", details: error.message },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { error: "Internal error", details: error.message },
+        { status: 500 }
+      );
+    } else {
+      return NextResponse.json(
+        { error: "Internal error", details: "An unknown error occurred" },
+        { status: 500 }
+      );
+    }
   }
 }

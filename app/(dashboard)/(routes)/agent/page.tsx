@@ -42,7 +42,7 @@ interface SynapseAgent {
   name: string;
   description: string;
   anweisungen: string;
-  knowledgeId?: string;
+  knowledgeId?: string | null;
   model?: string;
   customCommands?: string[];
   openai_assistant_id?: string;
@@ -161,7 +161,10 @@ export default function AgentPage() {
     setThreadId(null);
   };
 
-  const handleSave = async (silent: boolean = false) => {
+  const handleSave = async (
+    event: React.MouseEvent<HTMLButtonElement> | boolean = false
+  ) => {
+    const silent = typeof event === "boolean" ? event : false;
     if (selected) {
       try {
         setIsLoading(true);

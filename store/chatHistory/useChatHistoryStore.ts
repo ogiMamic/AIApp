@@ -1,6 +1,11 @@
+import { PrismaClient } from "@prisma/client";
 import create from "zustand";
 import { supabase } from "@/lib/supabaseClient";
 import { IMessage } from "@/lib/interfaces/IMessage";
+import { auth, getAuth } from "@clerk/nextjs/server";
+import { useAuth } from "@clerk/nextjs";
+
+const prisma = new PrismaClient();
 
 interface ChatHistory {
   id: string;
@@ -38,8 +43,16 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => ({
     }
   },
 
-  startNewChat: () => {
+  startNewChat: async () => {
     const newChatId = `${new Date().getTime()}`;
+    const newConversation = await prisma.conversations.create({
+      data: {
+        Id: newChatId,
+        Name: "New Chat",
+        CreatedAt: new Date(),
+        UserId: useAuth(),
+      },
+    });
     set((state) => ({
       selectedChatId: newChatId,
       histories: [
@@ -53,6 +66,7 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => ({
         ...state.histories,
       ],
     }));
+    return newChatId;
   },
 
   addMessageToCurrentChat: (newMessage) => {

@@ -8,7 +8,7 @@ interface State {
   userId: string | null;
   agents: SynapseAgent[];
   selected: SynapseAgent | null;
-  isLoading: boolean;
+  agentsLoading: boolean;
   error: string | null;
 }
 
@@ -28,7 +28,7 @@ const initialState: State = {
   userId: null,
   agents: [],
   selected: null,
-  isLoading: false,
+  agentsLoading: false,
   error: null,
 };
 
@@ -64,17 +64,34 @@ export const useAgentsStore = create<State & Actions>()(
           set({ agents });
         },
         fetchAgents: async () => {
-          set({ isLoading: true, error: null });
+          set({ agentsLoading: true, error: null });
           try {
-            // Replace this with your actual API call
-            const response = await fetch("/api/agents");
+            console.log("Fetching agents...");
+            const response = await fetch("/api/agent", {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
             if (!response.ok) {
-              throw new Error("Failed to fetch agents");
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
-            const agents: SynapseAgent[] = await response.json();
-            set({ agents, isLoading: false });
+            const data = await response.json();
+            console.log("Fetched agents data:", data);
+            if (data.success) {
+              set({ agents: data.agents, agentsLoading: false, error: null });
+            } else {
+              throw new Error(data.error || "Failed to fetch agents");
+            }
           } catch (error) {
-            set({ error: error.message, isLoading: false });
+            console.error("Error fetching agents:", error);
+            set({
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "An unknown error occurred",
+              agentsLoading: false,
+            });
           }
         },
       }),

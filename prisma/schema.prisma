@@ -3,41 +3,50 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlserver"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model EFMigrationsHistory {
+  MigrationId    String @id(map: "PK___EFMigrationsHistory") @db.NVarChar(150)
+  ProductVersion String @db.NVarChar(32)
+
+  @@map("__EFMigrationsHistory")
 }
 
-model File {
-  id        String   @id @default(cuid())
-  name      String
-  size      Int
-  type      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model agents {
+  Id                String     @id(map: "PK_agents") @db.UniqueIdentifier
+  Name              String     @db.NVarChar(Max)
+  Description       String     @db.NVarChar(Max)
+  Instructions      String     @db.NVarChar(Max)
+  OpenAiAssistantId String     @db.UniqueIdentifier
+  CreatedAt         DateTime
+  UpdatedAt         DateTime
+  UserId            String     
+  users             users      @relation(fields: [UserId], references: [Id], onUpdate: NoAction, map: "FK_agents_users_UserId")
 }
 
-model Agent {
-  id                  String   @id @default(cuid())
-  name                String
-  description         String?
-  instructions        String?
-  openai_assistant_id String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+model threads {
+  Id        String     @id(map: "PK_threads") @db.UniqueIdentifier
+  CreatedAt DateTime @default(now())
+  ConversationId String
+  conversations     conversations      @relation(fields: [ConversationId], references: [Id], onUpdate: NoAction, map: "FK_threads_conversations_ConversationId")
 }
 
-model Knowledge {
-  id        String   @id @default(cuid())
-  name      String
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model users{
+  Id                String      @id(map: "PK_users")
+  Used_Tokens       Int       @db.Int
+  Premium_User      Boolean     @default(false)
+  CreatedAt DateTime @default(now())
+  agents       agents[]
+  conversations     conversations[]
+}
+
+model conversations {
+  Id        String   @id(map: "PK_conversations")
+  Name      String   @db.NVarChar(Max)
+  CreatedAt DateTime @default(now())
+  threads      threads[]
+  UserId    String   
+  users     users      @relation(fields: [UserId], references: [Id], onUpdate: NoAction, map: "FK_conversations_users_UserId")
 }
