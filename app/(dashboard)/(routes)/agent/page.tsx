@@ -46,6 +46,7 @@ interface SynapseAgent {
   model?: string;
   customCommands?: string[];
   openai_assistant_id?: string;
+  provider: string;
 }
 
 interface Knowledge {
@@ -58,6 +59,12 @@ interface IMessage {
   content: string;
 }
 
+const MODELS = {
+  OpenAI: ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"],
+  Google: ["gemini-pro"],
+  Anthropic: ["claude-2", "claude-instant-1"],
+};
+
 export default function AgentPage() {
   const router = useRouter();
   const [agents, setAgents] = useState<SynapseAgent[]>([]);
@@ -68,6 +75,9 @@ export default function AgentPage() {
   const [anweisungen, setAnweisungen] = useState("");
   const [selectedKnowledge, setSelectedKnowledge] = useState<string | null>(
     null
+  );
+  const [selectedModel, setSelectedModel] = useState<string>(
+    "gpt-4-turbo-preview"
   );
   const [customCommand, setCustomCommand] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -94,7 +104,12 @@ export default function AgentPage() {
       setIsLoading(true);
       const response = await axios.post("/api/agent", { action: "list" });
       if (response.data.success) {
-        setAgents(response.data.assistants);
+        setAgents(
+          response.data.assistants.map((assistant: any) => ({
+            ...assistant,
+            provider: getProviderFromModel(assistant.model),
+          }))
+        );
       } else {
         toast.error("Failed to fetch agents");
       }
@@ -104,6 +119,13 @@ export default function AgentPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getProviderFromModel = (model: string): string => {
+    if (MODELS.OpenAI.includes(model)) return "OpenAI";
+    if (MODELS.Google.includes(model)) return "Google";
+    if (MODELS.Anthropic.includes(model)) return "Anthropic";
+    return "Unknown";
   };
 
   const fetchKnowledges = async () => {
@@ -125,6 +147,7 @@ export default function AgentPage() {
       setDescription(agent.description || "");
       setAnweisungen(agent.anweisungen || "");
       setSelectedKnowledge(agent.knowledgeId || null);
+      setSelectedModel(agent.model || "gpt-4-turbo-preview");
 
       if (!agent.openai_assistant_id) {
         try {
@@ -134,6 +157,7 @@ export default function AgentPage() {
             name: agent.name,
             description: agent.description,
             instructions: agent.anweisungen,
+            model: agent.model,
           });
           if (response.data.success) {
             setSelected({
@@ -155,6 +179,7 @@ export default function AgentPage() {
       setDescription("");
       setAnweisungen("");
       setSelectedKnowledge(null);
+      setSelectedModel("gpt-4-turbo-preview");
     }
     setTestQuestion("");
     setMessages([]);
@@ -175,7 +200,7 @@ export default function AgentPage() {
           description,
           instructions: anweisungen,
           knowledgeId: selectedKnowledge,
-          model: selected.model || "gpt-4-turbo-preview",
+          model: selectedModel,
         });
         if (response.data.success) {
           if (!silent) {
@@ -187,6 +212,7 @@ export default function AgentPage() {
             description,
             anweisungen,
             knowledgeId: selectedKnowledge,
+            model: selectedModel,
             openai_assistant_id: response.data.assistant.id,
           });
           fetchAgents();
@@ -211,7 +237,7 @@ export default function AgentPage() {
         description,
         instructions: anweisungen,
         knowledgeId: selectedKnowledge,
-        model: "gpt-4-turbo-preview",
+        model: selectedModel,
       });
       if (response.data.success) {
         toast.success("Agent created successfully");
@@ -323,10 +349,11 @@ export default function AgentPage() {
         messages: newMessages,
         agent: {
           id: selected.id,
-          name: name, // Use current state value
-          description: description, // Use current state value
-          instructions: anweisungen, // Use current state value
+          name: name,
+          description: description,
+          instructions: anweisungen,
           openai_assistant_id: selected.openai_assistant_id,
+          model: selectedModel,
         },
         threadId: threadId,
         knowledge_id: selectedKnowledge,
@@ -361,6 +388,14 @@ export default function AgentPage() {
     }
   };
 
+  const groupedAgents = agents.reduce((acc, agent) => {
+    if (!acc[agent.provider]) {
+      acc[agent.provider] = [];
+    }
+    acc[agent.provider].push(agent);
+    return acc;
+  }, {} as Record<string, SynapseAgent[]>);
+
   return (
     <div className="container mx-auto p-4">
       <Heading
@@ -375,16 +410,25 @@ export default function AgentPage() {
           <Card>
             <CardContent className="p-4">
               <h3 className="text-lg font-semibold mb-2">Agent List</h3>
-              {agents.map((agent) => (
-                <Button
-                  key={agent.id}
-                  variant={selected?.id === agent.id ? "secondary" : "ghost"}
-                  className="w-full justify-start mb-1"
-                  onClick={() => handleSelectAgent(agent)}
-                >
-                  {agent.name}
-                </Button>
-              ))}
+              {Object.entries(groupedAgents).map(
+                ([provider, providerAgents]) => (
+                  <div key={provider} className="mb-4">
+                    <h4 className="text-md font-medium mb-2">{provider}</h4>
+                    {providerAgents.map((agent) => (
+                      <Button
+                        key={agent.id}
+                        variant={
+                          selected?.id === agent.id ? "secondary" : "ghost"
+                        }
+                        className="w-full justify-start mb-1"
+                        onClick={() => handleSelectAgent(agent)}
+                      >
+                        {agent.name}
+                      </Button>
+                    ))}
+                  </div>
+                )
+              )}
               <Button
                 className="w-full mt-4 bg-gradient-to-r from-blue-500 to-teal-400 hover:from-blue-600 hover:to-teal-500 text-white"
                 onClick={() => handleSelectAgent(null)}
@@ -452,23 +496,50 @@ export default function AgentPage() {
                     className="h-32"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="knowledgeSelect">Knowledge Base</Label>
-                  <Select
-                    value={selectedKnowledge || undefined}
-                    onValueChange={setSelectedKnowledge}
-                  >
-                    <SelectTrigger id="knowledgeSelect">
-                      <SelectValue placeholder="Select a knowledge base" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {knowledges.map((knowledge) => (
-                        <SelectItem key={knowledge.id} value={knowledge.id}>
-                          {knowledge.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex space-x-4">
+                  <div className="flex-1">
+                    <Label htmlFor="knowledgeSelect">Knowledge Base</Label>
+                    <Select
+                      value={selectedKnowledge || undefined}
+                      onValueChange={setSelectedKnowledge}
+                    >
+                      <SelectTrigger id="knowledgeSelect">
+                        <SelectValue placeholder="Select a knowledge base" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {knowledges.map((knowledge) => (
+                          <SelectItem key={knowledge.id} value={knowledge.id}>
+                            {knowledge.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1">
+                    <Label htmlFor="modelSelect">Model</Label>
+                    <Select
+                      value={selectedModel}
+                      onValueChange={setSelectedModel}
+                    >
+                      <SelectTrigger id="modelSelect">
+                        <SelectValue placeholder="Select a model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(MODELS).map(([provider, models]) => (
+                          <React.Fragment key={provider}>
+                            <SelectItem value={provider} disabled>
+                              {provider}
+                            </SelectItem>
+                            {models.map((model) => (
+                              <SelectItem key={model} value={model}>
+                                {model}
+                              </SelectItem>
+                            ))}
+                          </React.Fragment>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="customCommand">Add Custom Command</Label>
@@ -631,6 +702,7 @@ export default function AgentPage() {
               <li>Defining the agent's name and description</li>
               <li>Providing instructions for the agent's behavior</li>
               <li>Selecting a knowledge base</li>
+              <li>Choosing an AI model</li>
               <li>Creating custom commands for the agent</li>
             </ol>
             These processes help in creating a tailored AI assistant that can
