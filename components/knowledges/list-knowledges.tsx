@@ -1,25 +1,125 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { SynapseKnowledge } from "@/lib/interfaces/SynapseKnowledge";
-import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
-import { toast } from "sonner";
+import { ChevronRight, File, Folder, MoreVertical } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarRail,
+  SidebarGroupContent,
+} from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Plus,
-  Trash,
-  ChevronRight,
-  ChevronDown,
-  Folder,
-  FileText,
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { SynapseKnowledge } from "@/lib/interfaces/SynapseKnowledge";
+import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import axios from "axios";
+
+const data = {
+  tree: [
+    {
+      name: "knowledges",
+      children: [],
+    },
+  ],
+};
+
+// Helper function to transform the data into a nested tree structure
+const transformToTreeStructure = (
+  items: SynapseKnowledge[]
+): (string | any[])[] => {
+  const buildTree = (parentId: string | undefined): (string | any[])[] => {
+    const children = items.filter((item) => item.parentId === parentId);
+    if (children.length === 0) return [];
+
+    return children.map((child) => {
+      // Recursively find children and build the tree structure
+      const subItems: (string | any[])[] = buildTree(child.id);
+      return [child.name, ...subItems];
+    });
+  };
+
+  return buildTree(undefined); // Start from root (no parent)
+};
+
+// Tree component to render collapsible folder structure
+interface TreeItem {
+  name: string;
+  children?: TreeItem[];
+}
+
+function Tree({ item }: { item: TreeItem }) {
+  const hasChildren = item.children;
+
+  if (!hasChildren) {
+    return (
+      <div className="flex items-center justify-between w-full">
+        <SidebarMenuButton
+          isActive={item.name === "button.tsx"}
+          className="data-[active=true]:bg-transparent flex-grow"
+        >
+          <File />
+          {item.name}
+        </SidebarMenuButton>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem>Add to folder</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
+
+  return (
+    <SidebarMenuItem>
+      <Collapsible
+        className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
+        defaultOpen={item.name === "components" || item.name === "ui"}
+      >
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton>
+            <ChevronRight className="transition-transform" />
+            <Folder />
+            {item.name}
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.children!.length > 0 ? (
+              item.children!.map((subItem, index) => (
+                <Tree key={index} item={subItem} />
+              ))
+            ) : (
+              <SidebarMenuButton className="pl-4 text-muted-foreground">
+                (Empty folder)
+              </SidebarMenuButton>
+            )}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </Collapsible>
+    </SidebarMenuItem>
+  );
+}
 
 const ListKnowledges = ({
   onSelectAction,
@@ -30,318 +130,88 @@ const ListKnowledges = ({
     parentFolderId?: string
   ) => void;
 }) => {
-  const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
-  const [fileInputId, setFileInputId] = useState<string | null>(null);
-  const {
-    addKnowledge,
-    knowledges,
-    selectKnowledge,
-    selected,
-    removeKnowledge,
-    setKnowledges,
-  } = useKnowledgesStore();
-  const [parentFolderId, setParentFolderId] = useState<string | undefined>(
-    undefined
-  );
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set()
-  );
-
-  useEffect(() => {
-    axios.get("/api/knowledge").then((response) => {
-      setKnowledges(response.data);
-    });
-  }, [setKnowledges]);
-
-  useEffect(() => {
-    if (knowledges.length > 0 && !selected) {
-      selectKnowledge(knowledges[0]);
-    }
-  }, [knowledges, selectKnowledge, selected]);
-
-  const toggleFolder = (folderId: string) => {
-    setExpandedFolders((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(folderId)) {
-        newSet.delete(folderId);
-      } else {
-        newSet.add(folderId);
-      }
-      return newSet;
-    });
-  };
-
-  const createKnowledge = async (name: string, parentId?: string) => {
-    setIsLoading(true);
-    try {
-      const response = await axios.post("/api/knowledge", {
-        name,
-        description: parentId ? "" : "Vertriebsmitarbeiter",
-        anweisungen: "",
-        parentId: parentId || undefined,
-      });
-      const knowledge = response.data;
-      addKnowledge(knowledge);
-      toast.success("Knowledge Created", {
-        description: "You have successfully created the knowledge",
-      });
-    } catch (error) {
-      console.error("Failed to create knowledge", error);
-      toast.error("Failed to create knowledge");
-    } finally {
-      setIsLoading(false);
-      setIsDialogOpen(false);
-      setFolderName("");
-      setParentFolderId(undefined);
-    }
-  };
-
-  const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    parentId?: string
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("name", file.name);
-      formData.append("description", "");
-      formData.append("anweisungen", "");
-      formData.append("parentId", parentId || "");
-
-      // Convert file to base64 and await upload to supabase storage
-      var base64 = await getBase64(file);
-      formData.append("base64", base64 as string);
-
-      try {
-        const response = await axios.post("/api/knowledge", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        const savedDocument = response.data;
-        addKnowledge(savedDocument);
-        toast.success("Document Uploaded", {
-          description: "You have successfully uploaded the document",
-        });
-      } catch (error) {
-        console.error("Failed to upload document", error);
-        toast.error("Failed to upload document");
-      }
-    }
-  };
-
-  const getBase64 = (file: File) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        resolve(base64);
-      };
-      reader.onerror = (error) => {
-        reject(error);
-      };
-    });
-  };
+  const [parentFolderId, setParentFolderId] = useState<string | undefined>();
+  const { knowledges, addKnowledge } = useKnowledgesStore();
+  const [items, setItems] = useState<any[]>(data.tree);
 
   const handleCreateFolder = () => {
     if (folderName.trim()) {
-      createKnowledge(folderName, parentFolderId);
-      setIsDialogOpen(false);
+      const newFolder: SynapseKnowledge = {
+        id: `${Math.random()}`,
+        name: folderName,
+        description: "",
+        anweisungen: "",
+        parentId: parentFolderId || undefined,
+        agents: [],
+      };
+      const folder = { name: folderName, children: [] };
+      setItems((prevItems) => [...prevItems, folder]);
+      addKnowledge(newFolder);
       setFolderName("");
       setParentFolderId(undefined);
+      setIsDialogOpen(false);
+      toast.success("Folder created successfully!");
     } else {
-      toast.error("Folder name cannot be empty");
+      toast.error("Folder name cannot be empty!");
     }
   };
 
-  const openCreateFolderDialog = (parentId?: string) => {
-    setIsDialogOpen(true);
-    setParentFolderId(parentId);
-  };
+  // Convert knowledge items into tree structure
+  const treeStructure = transformToTreeStructure(knowledges);
 
-  const handleDeleteFolder = async (id: string) => {
-    try {
-      await axios.delete(`/api/knowledge`, { data: { id } });
-      removeKnowledge(id);
-      toast.success("Folder Deleted", {
-        description: "You have successfully deleted the folder",
+  useEffect(() => {
+    axios.get("/api/knowledge").then((response) => {
+      const knowledges = response.data.map((o:any) => {
+        return {
+          name: `Knowledge ${o.id}`,
+          // Include other properties if needed
+          id: o.id,
+        };
       });
-    } catch (error) {
-      console.error("Failed to delete folder", error);
-      toast.error("Failed to delete folder");
-    }
-  };
-
-  const handleSelectItem = (knowledge: SynapseKnowledge) => {
-    selectKnowledge(knowledge);
-  };
-
-  const renderFolderTree = (items: SynapseKnowledge[], parentId?: string) => {
-    return items
-      .filter((item) => item.parentId === parentId)
-      .map((item) => {
-        const isFolder = items.some((subItem) => subItem.parentId === item.id);
-        return (
-          <li key={item.id}>
-            <div
-              className={`flex justify-between items-center pl-4 pr-4 pt-1 pb-1 cursor-pointer ${
-                selected?.id === item.id ? "bg-gray-200 rounded-lg" : ""
-              } hover:bg-gray-100`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectItem(item);
-              }}
-            >
-              <div className="flex items-center">
-                {isFolder && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="mr-2 cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFolder(item.id);
-                    }}
-                  >
-                    {expandedFolders.has(item.id) ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                )}
-                {isFolder ? (
-                  <Folder className="h-4 w-4 mr-2" />
-                ) : (
-                  <FileText className="h-4 w-4 mr-2" />
-                )}
-                <span className="text-sm font-semibold leading-6 text-gray-900">
-                  {item.name}
-                </span>
-              </div>
-              <div className="flex items-center">
-                {isFolder && (
-                  <>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="ml-2 p-0 bg-transparent text-gray-600 hover:text-gray-800 cursor-pointer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem
-                          className="cursor-pointer"
-                          onSelect={() => openCreateFolderDialog(item.id)}
-                        >
-                          New Subfolder
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="cursor-pointer"
-                          onSelect={() =>
-                            document
-                              .getElementById(`file-upload-${item.id}`)
-                              ?.click()
-                          }
-                        >
-                          New document
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="ml-2 p-0 bg-transparent text-red-500 hover:text-red-700 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteFolder(item.id);
-                      }}
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-            {expandedFolders.has(item.id) && (
-              <ul className="pl-4">{renderFolderTree(items, item.id)}</ul>
-            )}
-            <input
-              type="file"
-              id={`file-upload-${item.id}`}
-              className="hidden"
-              onChange={(e) => handleFileUpload(e, item.id)}
-            />
-          </li>
-        );
+      console.log("knowledges", knowledges);
+      const newData = data.tree.map((o:any) => {
+        return {
+          name: o.name,
+          children: knowledges,
+        };
       });
-  };
+      setItems(newData);
+    });
+  }, []);
+
+  // useEffect(() => {
+  //   if (knowledges.length > 0 && !selected) {
+  //     selectKnowledge(knowledges[0]);
+  //   }
+  // }, [knowledges, selectKnowledge, selected]);
 
   return (
     <div className="pt-6 pb-4 px-4 flex-col lg:col-span-3 bg-gray-50 h-full overflow-auto">
-      <DropdownMenu>
-        <div className="pl-6 pr-6 pb-4">
-          <DropdownMenuTrigger asChild>
-            <Button className="p-6 w-full mb-4">+ Create new Knowledge</Button>
-          </DropdownMenuTrigger>
-        </div>
-        <DropdownMenuContent>
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onSelect={() => openCreateFolderDialog()}
-          >
-            New Folder
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onSelect={() =>
-              onSelectAction("newDocument", undefined, parentFolderId)
-            }
-          >
-            New document
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onSelect={() => document.getElementById("file-upload")?.click()}
-          >
-            Upload document
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onSelect={() => console.log("Team Selected")}
-          >
-            Import website
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onSelect={() => console.log("Subscription Selected")}
-          >
-            Import from SharePoint
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <input
-        type="file"
-        id="file-upload"
-        className="hidden"
-        onChange={(e) => handleFileUpload(e)}
-      />
+      <div className="pl-6 pr-6 pb-4">
+        <Button className="w-full mb-4" onClick={() => setIsDialogOpen(true)}>
+          + Create new Knowledge
+        </Button>
+      </div>
 
-      <ul role="list" className="divide-y divide-gray-100">
-        {renderFolderTree(knowledges)}
-      </ul>
+      <div>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Files</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {items.map((item, index) => (
+                  <Tree key={index} item={item} />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarRail />
+      </div>
 
+      {/* Dialog for creating a new folder */}
       {isDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75">
           <div className="bg-white p-8 rounded shadow-lg">
@@ -354,9 +224,7 @@ const ListKnowledges = ({
               className="w-full p-2 border border-gray-300 rounded mb-4"
             />
             <div className="flex justify-end">
-              <Button onClick={handleCreateFolder} disabled={isLoading}>
-                {isLoading ? "Creating..." : "Create"}
-              </Button>
+              <Button onClick={handleCreateFolder}>Create</Button>
               <Button onClick={() => setIsDialogOpen(false)} className="ml-2">
                 Cancel
               </Button>

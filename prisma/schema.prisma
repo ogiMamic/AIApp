@@ -50,3 +50,10 @@ model conversations {
   UserId    String   
   users     users      @relation(fields: [UserId], references: [Id], onUpdate: NoAction, map: "FK_conversations_users_UserId")
 }
+
+model Folder {
+Id        Int      @id @default(autoincrement())
+Name      String
+CreatedAt DateTime @default(now())
+Pos       Float
+}
