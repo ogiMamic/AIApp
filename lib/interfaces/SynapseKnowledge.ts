@@ -4,4 +4,6 @@ export interface SynapseKnowledge {
   description: string;
   anweisungen: string;
   actions?: string[];
+  parentId?: string;
+  agents: string[];
 }

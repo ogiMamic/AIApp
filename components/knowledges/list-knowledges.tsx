@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { ChevronRight, File, Folder, MoreVertical } from "lucide-react";
+import { ChevronRight, File, Folder, MoreVertical, Plus } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -24,101 +24,117 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SynapseKnowledge } from "@/lib/interfaces/SynapseKnowledge";
 import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import axios from "axios";
+import { TreeItem } from "./interfaces/tree-item";
+import Tree from "./knowledges-tree";
 
-const data = {
+let data = {
   tree: [
     {
-      name: "knowledges",
+      id: "1",
+      name: "Knowledges",
       children: [],
+    },
+    {
+      id: "5",
+      name: "Folder 2",
+      children: [
+        {
+          id: "2",
+          name: "Folder 1",
+          children: [
+            { id: "3", name: "Subfolder 1" },
+            { id: "4", name: "Subfolder 2" },
+          ],
+        },
+      ],
     },
   ],
 };
 
-// Helper function to transform the data into a nested tree structure
-const transformToTreeStructure = (
-  items: SynapseKnowledge[]
-): (string | any[])[] => {
+const transformToTreeStructure = ( items: SynapseKnowledge[]): (string | any[])[] => {
   const buildTree = (parentId: string | undefined): (string | any[])[] => {
     const children = items.filter((item) => item.parentId === parentId);
     if (children.length === 0) return [];
 
     return children.map((child) => {
-      // Recursively find children and build the tree structure
       const subItems: (string | any[])[] = buildTree(child.id);
       return [child.name, ...subItems];
     });
   };
 
-  return buildTree(undefined); // Start from root (no parent)
+  return buildTree(undefined);
 };
 
-// Tree component to render collapsible folder structure
-interface TreeItem {
-  name: string;
-  children?: TreeItem[];
-}
+function moveItem(tree: TreeItem[], itemId: string, newFolderId: string): { success: boolean; updatedTree: TreeItem[] } {
+  let itemToMove: TreeItem | null = null;
+  let itemRemoved = false;
 
-function Tree({ item }: { item: TreeItem }) {
-  const hasChildren = item.children;
-
-  if (!hasChildren) {
-    return (
-      <div className="flex items-center justify-between w-full">
-        <SidebarMenuButton
-          isActive={item.name === "button.tsx"}
-          className="data-[active=true]:bg-transparent flex-grow"
-        >
-          <File />
-          {item.name}
-        </SidebarMenuButton>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem>Add to folder</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    );
+  // Helper function to remove item from its current location
+  function removeItem(items: TreeItem[]): TreeItem[] {
+    return items.filter(item => {
+      if (item.id === itemId) {
+        itemToMove = { ...item, children: item.children ? [...item.children] : undefined };
+        return false;
+      }
+      if (item.children) {
+        item.children = removeItem(item.children);
+        if (item.children.length === 0) {
+          delete item.children;
+        }
+      }
+      return true;
+    });
   }
 
-  return (
-    <SidebarMenuItem>
-      <Collapsible
-        className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
-        defaultOpen={item.name === "components" || item.name === "ui"}
-      >
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton>
-            <ChevronRight className="transition-transform" />
-            <Folder />
-            {item.name}
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {item.children!.length > 0 ? (
-              item.children!.map((subItem, index) => (
-                <Tree key={index} item={subItem} />
-              ))
-            ) : (
-              <SidebarMenuButton className="pl-4 text-muted-foreground">
-                (Empty folder)
-              </SidebarMenuButton>
-            )}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </Collapsible>
-    </SidebarMenuItem>
-  );
+  // Helper function to add item to new folder
+  function addItem(items: TreeItem[]): boolean {
+    for (let item of items) {
+      if (item.id === newFolderId) {
+        if (!item.children) {
+          item.children = [];
+        }
+        item.children.push(itemToMove!);
+        return true;
+      }
+      if (item.children && addItem(item.children)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Create a deep copy of the tree to avoid mutating the original
+  let updatedTree = JSON.parse(JSON.stringify(tree));
+
+  // Remove the item from its current location
+  updatedTree = removeItem(updatedTree);
+  itemRemoved = itemToMove !== null;
+
+  // If item was found and removed, try to add it to the new folder
+  if (itemRemoved && itemToMove) {
+    if (!addItem(updatedTree)) {
+      // If new folder wasn't found, add the item back to its original location
+      updatedTree.push(itemToMove);
+      return { success: false, updatedTree: tree }; // Return original tree if move failed
+    }
+    return { success: true, updatedTree };
+  }
+
+  return { success: false, updatedTree: tree }; // Return original tree if item wasn't found
 }
 
 const ListKnowledges = ({
@@ -131,10 +147,13 @@ const ListKnowledges = ({
   ) => void;
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateFolderDialogOpen, setIsCreateFolderDialogOpen] =
+    useState(false);
   const [folderName, setFolderName] = useState("");
   const [parentFolderId, setParentFolderId] = useState<string | undefined>();
   const { knowledges, addKnowledge } = useKnowledgesStore();
   const [items, setItems] = useState<any[]>(data.tree);
+
 
   const handleCreateFolder = () => {
     if (folderName.trim()) {
@@ -147,45 +166,63 @@ const ListKnowledges = ({
         agents: [],
       };
       const folder = { name: folderName, children: [] };
-      setItems((prevItems) => [...prevItems, folder]);
+      setItems((prevItems) => {
+        const updatedItems = [...prevItems];
+        const parent = updatedItems.find(
+          (item: any) => item.id === parentFolderId
+        );
+        if (parent) {
+          parent.children.push(folder);
+        } else {
+          updatedItems.push(folder);
+        }
+        return updatedItems;
+      });
       addKnowledge(newFolder);
       setFolderName("");
       setParentFolderId(undefined);
       setIsDialogOpen(false);
+      setIsCreateFolderDialogOpen(false);
       toast.success("Folder created successfully!");
     } else {
       toast.error("Folder name cannot be empty!");
     }
   };
 
-  // Convert knowledge items into tree structure
-  const treeStructure = transformToTreeStructure(knowledges);
+  const treeStructure = transformToTreeStructure(knowledges as SynapseKnowledge[]);
 
   useEffect(() => {
     axios.get("/api/knowledge").then((response) => {
-      const knowledges = response.data.map((o:any) => {
+      const knowledges = response.data.map((o: any) => {
         return {
           name: `Knowledge ${o.id}`,
-          // Include other properties if needed
           id: o.id,
+          content: o,          
         };
       });
-      console.log("knowledges", knowledges);
-      const newData = data.tree.map((o:any) => {
-        return {
-          name: o.name,
-          children: knowledges,
-        };
-      });
-      setItems(newData);
+
+
+      var knowledgesFolder = data.tree.find((item: any) => item.name === "Knowledges");
+
+      if(knowledgesFolder){
+        knowledgesFolder.children = knowledges;
+      }
+
+      setItems(data.tree);
     });
   }, []);
 
-  // useEffect(() => {
-  //   if (knowledges.length > 0 && !selected) {
-  //     selectKnowledge(knowledges[0]);
-  //   }
-  // }, [knowledges, selectKnowledge, selected]);
+  const onCreateFolder = (parentId: string) => {
+    console.log("parentId", parentId);
+  };
+
+
+  const onMove = (folderId: string, itemId: string) => {
+    console.log("onMove => folderId", folderId);
+    console.log("onMove => itemId", itemId);
+    const { success, updatedTree } = moveItem(items, itemId, folderId);
+    setItems(updatedTree);
+  };
 
   return (
     <div className="pt-6 pb-4 px-4 flex-col lg:col-span-3 bg-gray-50 h-full overflow-auto">
@@ -194,7 +231,9 @@ const ListKnowledges = ({
           + Create new Knowledge
         </Button>
       </div>
-
+      <div>
+        search
+      </div>
       <div>
         <SidebarContent>
           <SidebarGroup>
@@ -202,7 +241,14 @@ const ListKnowledges = ({
             <SidebarGroupContent>
               <SidebarMenu>
                 {items.map((item, index) => (
-                  <Tree key={index} item={item} />
+                  <Tree
+                    key={index}
+                    item={item}
+                    data={data}
+                    onCreateFolder={onCreateFolder}
+                    onSelect={onSelectAction}
+                    onMove={onMove}
+                  />
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -211,7 +257,6 @@ const ListKnowledges = ({
         <SidebarRail />
       </div>
 
-      {/* Dialog for creating a new folder */}
       {isDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75">
           <div className="bg-white p-8 rounded shadow-lg">
@@ -226,6 +271,29 @@ const ListKnowledges = ({
             <div className="flex justify-end">
               <Button onClick={handleCreateFolder}>Create</Button>
               <Button onClick={() => setIsDialogOpen(false)} className="ml-2">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isCreateFolderDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75">
+          <div className="bg-white p-8 rounded shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Create New Folder</h2>
+            <input
+              type="text"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              placeholder="Enter folder name"
+              className="w-full p-2 border border-gray-300 rounded mb-4"
+            />
+            <div className="flex justify-end">
+              <Button onClick={handleCreateFolder}>Create</Button>
+              <Button
+                onClick={() => setIsCreateFolderDialogOpen(false)}
+                className="ml-2"
+              >
                 Cancel
               </Button>
             </div>
