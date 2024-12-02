@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, Folder } from 'lucide-react';
@@ -48,6 +48,32 @@ function FolderSelector({ items, onSelect, selectedFolderId }: { items: TreeItem
 
 export function FolderSelectionDialog({ isOpen, onClose, onSelect, items }: FolderSelectionDialogProps) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(isOpen);
+
+  const handlePointerEvents = useCallback((shouldDisable: boolean) => {
+    if (shouldDisable) {
+      document.body.style.setProperty('pointer-events', 'none', 'important');
+    } else {
+      document.body.style.removeProperty('pointer-events');
+    }
+  }, []);
+
+  useEffect(() => {
+    setModalOpen(isOpen);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (modalOpen) {
+      handlePointerEvents(true);
+    } else {
+      // Delay re-enabling pointer events to ensure the dialog has fully closed
+      const timer = setTimeout(() => {
+        handlePointerEvents(false);
+      }, 300); // Adjust this delay if needed
+
+      return () => clearTimeout(timer);
+    }
+  }, [modalOpen, handlePointerEvents]);
 
   const handleSelect = (folderId: string) => {
     setSelectedFolderId(folderId);
@@ -60,8 +86,15 @@ export function FolderSelectionDialog({ isOpen, onClose, onSelect, items }: Fold
     }
   };
 
+  const handleOpenChange = (open: boolean) => {
+    setModalOpen(open);
+    if (!open) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={modalOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Select destination folder</DialogTitle>
