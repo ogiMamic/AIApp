@@ -40,6 +40,7 @@ import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import axios from "axios";
 import { TreeItem } from "./interfaces/tree-item";
 import Tree from "./knowledges-tree";
+import SearchInput from "./SearchInput";
 
 let data = {
   tree: [
@@ -65,7 +66,9 @@ let data = {
   ],
 };
 
-const transformToTreeStructure = ( items: SynapseKnowledge[]): (string | any[])[] => {
+const transformToTreeStructure = (
+  items: SynapseKnowledge[]
+): (string | any[])[] => {
   const buildTree = (parentId: string | undefined): (string | any[])[] => {
     const children = items.filter((item) => item.parentId === parentId);
     if (children.length === 0) return [];
@@ -79,15 +82,22 @@ const transformToTreeStructure = ( items: SynapseKnowledge[]): (string | any[])[
   return buildTree(undefined);
 };
 
-function moveItem(tree: TreeItem[], itemId: string, newFolderId: string): { success: boolean; updatedTree: TreeItem[] } {
+function moveItem(
+  tree: TreeItem[],
+  itemId: string,
+  newFolderId: string
+): { success: boolean; updatedTree: TreeItem[] } {
   let itemToMove: TreeItem | null = null;
   let itemRemoved = false;
 
   // Helper function to remove item from its current location
   function removeItem(items: TreeItem[]): TreeItem[] {
-    return items.filter(item => {
+    return items.filter((item) => {
       if (item.id === itemId) {
-        itemToMove = { ...item, children: item.children ? [...item.children] : undefined };
+        itemToMove = {
+          ...item,
+          children: item.children ? [...item.children] : undefined,
+        };
         return false;
       }
       if (item.children) {
@@ -154,7 +164,6 @@ const ListKnowledges = ({
   const { knowledges, addKnowledge } = useKnowledgesStore();
   const [items, setItems] = useState<any[]>(data.tree);
 
-
   const handleCreateFolder = () => {
     if (folderName.trim()) {
       const newFolder: SynapseKnowledge = {
@@ -189,7 +198,9 @@ const ListKnowledges = ({
     }
   };
 
-  const treeStructure = transformToTreeStructure(knowledges as SynapseKnowledge[]);
+  const treeStructure = transformToTreeStructure(
+    knowledges as SynapseKnowledge[]
+  );
 
   useEffect(() => {
     axios.get("/api/knowledge").then((response) => {
@@ -197,14 +208,15 @@ const ListKnowledges = ({
         return {
           name: `Knowledge ${o.id}`,
           id: o.id,
-          content: o,          
+          content: o,
         };
       });
 
+      var knowledgesFolder = data.tree.find(
+        (item: any) => item.name === "Knowledges"
+      );
 
-      var knowledgesFolder = data.tree.find((item: any) => item.name === "Knowledges");
-
-      if(knowledgesFolder){
+      if (knowledgesFolder) {
         knowledgesFolder.children = knowledges;
       }
 
@@ -215,7 +227,6 @@ const ListKnowledges = ({
   const onCreateFolder = (parentId: string) => {
     console.log("parentId", parentId);
   };
-
 
   const onMove = (folderId: string, itemId: string) => {
     console.log("onMove => folderId", folderId);
@@ -232,7 +243,17 @@ const ListKnowledges = ({
         </Button>
       </div>
       <div>
-        search
+        <div className="mb-4">
+          <SearchInput
+            items={items}
+            onSelect={(item) => {
+              // Handle the selected item here
+              console.log("Selected item:", item);
+              // You might want to expand the folder or navigate to the file
+              // depending on the item type
+            }}
+          />
+        </div>
       </div>
       <div>
         <SidebarContent>
