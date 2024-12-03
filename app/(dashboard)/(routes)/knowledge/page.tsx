@@ -194,11 +194,11 @@ const KnowledgePage = () => {
 
   return (
     <div className="mt-0 w-full grid grid-cols-1 lg:grid-cols-12 gap-4 divide-y lg:divide-y-0 divide-gray-200">
-      <div className="col-span-12 lg:col-span-3 rounded-lg">
+      <div className="col-span-12 md:col-span-4 lg:col-span-3 rounded-lg">
         <ListKnowledge onSelectAction={handleDropdownSelect} />
       </div>
 
-      <div className="col-span-12 lg:col-span-9 bg-gray-0 p-4 rounded-lg">
+      <div className="col-span-12 md:col-span-8 lg:col-span-9 bg-gray-0 p-4 rounded-lg">
         <Heading
           title="Knowledge Management"
           description="Manage your knowledge documents and folders."

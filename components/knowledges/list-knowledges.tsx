@@ -237,7 +237,7 @@ const ListKnowledges = ({
 
   return (
     <div className="pt-6 pb-4 px-4 flex-col lg:col-span-3 bg-gray-50 h-full overflow-auto">
-      <div className="pl-6 pr-6 pb-4">
+      <div className="pb-2">
         <Button className="w-full mb-4" onClick={() => setIsDialogOpen(true)}>
           + Create new Knowledge
         </Button>

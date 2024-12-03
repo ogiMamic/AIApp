@@ -39,12 +39,15 @@ export function DataTable<TData, TValue>({
               {headerGroup.headers.map((header) => {
                 return (
                   <TableHead key={header.id}>
+                    <div className="flex items-center gap-2">
+                    <span>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
                           header.column.columnDef.header,
                           header.getContext()
                         )}
+                    </span>
                     {header.column.getCanSort() && (
                       <input
                         type="checkbox"
@@ -53,6 +56,8 @@ export function DataTable<TData, TValue>({
                         indeterminate={header.column.getIsSorted() === "asc"}
                       />
                     )}
+                    </div>
+                   
                   </TableHead>
                 );
               })}

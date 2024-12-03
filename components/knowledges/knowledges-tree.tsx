@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { ChevronRight, File, Folder, MoreVertical, Plus } from "lucide-react";
+import { ChevronRight, File, Folder, FolderInput, MoreVertical, Plus, TrashIcon } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -39,7 +39,6 @@ import { SynapseKnowledge } from "@/lib/interfaces/SynapseKnowledge";
 import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import axios from "axios";
 import { TreeItem } from "./interfaces/tree-item";
-import { FolderSelector } from "./FolderSelector";
 import { FolderSelectionDialog } from "./FolderSelectionDialog";
 
 type TreeItemProps = {
@@ -73,15 +72,13 @@ export default function Tree({
   };
 
   const handleMove = (folderId: string) => {
-
-
     console.log("handleMove => itemToMove", item);
     console.log("handleMove => folderId", folderId);
 
     if (folderId) {
       console.log(`Moving item ${item.name} to folder ${folderId}`);
       setIsDialogOpen(false);
-      setSelectedFolderId(null);         
+      setSelectedFolderId(null);
       toast.success(`Moved ${item.name} successfully!`);
       onMove(folderId, item.id);
     }
@@ -110,12 +107,20 @@ export default function Tree({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-            <DropdownMenuItem onSelect={()=>{
-                setIsDialogOpen(true);
-                setItemToMove(item.id);
-                console.log("itemToMove", item);
-            }}>Move</DropdownMenuItem>
-              <DropdownMenuItem>Delete</DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  setIsDialogOpen(true);
+                  setItemToMove(item.id);
+                  console.log("itemToMove", item);
+                }}
+              >
+                <FolderInput size="16"  />
+                <span>Move</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <TrashIcon size="16" />
+                <span>Delete</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -132,18 +137,23 @@ export default function Tree({
   return (
     <SidebarMenuItem>
       <Collapsible
-        className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
+        className="group/collapsible [&[data-state=open]>div>button:first-child>svg.transition-transform:first-child]:rotate-90"
         defaultOpen={item.name === "components" || item.name === "ui"}
       >
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton>
-            <ChevronRight className="transition-transform" />
+        <div className="flex items-center">
+          <CollapsibleTrigger asChild className="w-auto p-2">
+            <SidebarMenuButton>
+              <ChevronRight className="transition-transform" />
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+          <Button variant="ghost" className="flex items-center gap-2 flex-1 justify-start px-2">
             <Folder />
             {item.name}
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
+          </Button>
+        </div>
+
         <CollapsibleContent>
-          <SidebarMenuSub>
+          <SidebarMenuSub className="pr-0 mr-0">
             {item.children?.map((subItem) => (
               <Tree
                 data={data}
