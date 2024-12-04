@@ -106,18 +106,19 @@ export default function Tree({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent>
+            <DropdownMenuContent className="[&>div]:cursor-pointer">
               <DropdownMenuItem
                 onSelect={() => {
                   setIsDialogOpen(true);
                   setItemToMove(item.id);
                   console.log("itemToMove", item);
                 }}
+                className="hover:bg-gray-100"
               >
                 <FolderInput size="16"  />
                 <span>Move</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem className="hover:bg-gray-100">
                 <TrashIcon size="16" />
                 <span>Delete</span>
               </DropdownMenuItem>
