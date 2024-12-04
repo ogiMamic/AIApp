@@ -48,16 +48,7 @@ export function DataTable<TData, TValue>({
                           header.getContext()
                         )}
                     </span>
-                    {header.column.getCanSort() && (
-                      <input
-                        type="checkbox"
-                        checked={header.column.getIsSorted() as boolean}
-                        onChange={header.column.getToggleSortingHandler()}
-                        indeterminate={header.column.getIsSorted() === "asc"}
-                      />
-                    )}
                     </div>
-                   
                   </TableHead>
                 );
               })}
