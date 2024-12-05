@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import axios from "axios";
 import { DatabaseZap } from "lucide-react";
 import { Heading } from "@/components/heading";
@@ -10,6 +10,7 @@ import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import { DataTable } from "./_components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
+import { create } from "domain";
 
 type KnowledgeDocument = {
   id: string;
@@ -70,14 +71,22 @@ const KnowledgePage = () => {
       try {
         const response = await axios.post("/api/knowledge", {
           id: selected.id,
-          content: selected.content,
-          metadata: selected.metadata,
+          //content: selected.content,
+          parentId: selected.parentId,
+          name: selected.name,
+          description: selected.description,
+          anweisungen: selected.anweisungen,
+
+
+          
         });
         if (response.data) {
           updateKnowledge({
             ...selected,
-            content: response.data.content,
-            metadata: response.data.metadata,
+            name: response.data.name,
+            description: response.data.description,
+            anweisungen: response.data.anweisungen,
+            parentId: response.data.parentId,
           });
           fetchDocuments(); // Refresh the table data
         }
@@ -211,7 +220,7 @@ const KnowledgePage = () => {
         />
         <div className="mt-4 px-4 lg:px-8">
           <h5 className="text-lg font-semibold">
-            {selected?.content || "No document selected"}
+            {selected?.name || "No document selected"}
           </h5>
           {isLoading ? (
             <div>Loading...</div>
@@ -231,17 +240,17 @@ const KnowledgePage = () => {
                     </label>
                     <textarea
                       id="content"
-                      value={selected.content}
+                      value={selected.name}
                       onChange={(e) =>
                         updateKnowledge({
                           ...selected,
-                          content: e.target.value,
+                          name: e.target.value,
                         })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     />
                   </div>
-                  <div>
+                  {/* <div>
                     <label
                       htmlFor="metadata"
                       className="block text-sm font-medium text-gray-700"
@@ -259,7 +268,7 @@ const KnowledgePage = () => {
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     />
-                  </div>
+                  </div> */}
                   <div className="flex justify-end space-x-2">
                     <Button
                       onClick={() => handleDeleteDocument(selected.id)}
