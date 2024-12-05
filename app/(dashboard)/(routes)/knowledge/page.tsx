@@ -171,9 +171,12 @@ const KnowledgePage = () => {
         </div>
       ),
     },
-    { id: "content", header: "Content", accessorKey: "content" },
-    { id: "metadata", header: "Metadata", accessorKey: "metadata" },
-    { id: "created_at", header: "Created At", accessorKey: "created_at" },
+    { id: "name", header: "Name", accessorKey: "name" },
+    { id: "owner", header: "Owner", accessorKey: "owner" },
+    // { id: "content", header: "Content", accessorKey: "content" },
+    { id: "size", header: "Size", accessorKey: "size" },
+    // { id: "created_at", header: "Created At", accessorKey: "created_at" },
+    { id: "last_edited", header: "Last edited", accessorKey: "last_edited" },
     {
       id: "actions",
       header: "Actions",
