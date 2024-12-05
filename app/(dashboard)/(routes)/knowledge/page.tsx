@@ -11,6 +11,7 @@ import { DataTable } from "./_components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { create } from "domain";
+import ActionButtons from "./_components/action-buttons";
 
 type KnowledgeDocument = {
   id: string;
@@ -76,9 +77,6 @@ const KnowledgePage = () => {
           name: selected.name,
           description: selected.description,
           anweisungen: selected.anweisungen,
-
-
-          
         });
         if (response.data) {
           updateKnowledge({
@@ -222,6 +220,7 @@ const KnowledgePage = () => {
           <h5 className="text-lg font-semibold">
             {selected?.name || "No document selected"}
           </h5>
+          <ActionButtons />
           {isLoading ? (
             <div>Loading...</div>
           ) : error ? (
