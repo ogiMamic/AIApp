@@ -2,16 +2,31 @@
 
 import React, { use, useEffect, useState } from "react";
 import axios from "axios";
-import { DatabaseZap } from "lucide-react";
+import {
+  DatabaseZap,
+  FolderInput,
+  MoreHorizontal,
+  MoreVertical,
+  Move,
+  Trash,
+  Trash2,
+} from "lucide-react";
 import { Heading } from "@/components/heading";
 import { Button } from "@/components/ui/button";
-import ListKnowledge from "@/components/knowledges/list-knowledges";
+import ListKnowledge, { data } from "@/components/knowledges/list-knowledges";
 import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import { DataTable } from "./_components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { create } from "domain";
 import ActionButtons from "./_components/action-buttons";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 type KnowledgeDocument = {
   id: string;
@@ -19,11 +34,16 @@ type KnowledgeDocument = {
   metadata: any;
   userId: string;
   created_at: string;
+  name: string;
+  owner: string;
+  size: string;
+  last_edited: string;
 };
 
 const KnowledgePage = () => {
   const { knowledges, selected, updateKnowledge, addKnowledge, setKnowledges } =
     useKnowledgesStore();
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   // Remove or comment out these lines
   // const [name, setName] = useState("");
   // const [description, setDescription] = useState("");
@@ -180,9 +200,7 @@ const KnowledgePage = () => {
     },
     { id: "name", header: "Name", accessorKey: "name" },
     { id: "owner", header: "Owner", accessorKey: "owner" },
-    // { id: "content", header: "Content", accessorKey: "content" },
     { id: "size", header: "Size", accessorKey: "size" },
-    // { id: "created_at", header: "Created At", accessorKey: "created_at" },
     { id: "last_edited", header: "Last edited", accessorKey: "last_edited" },
     {
       id: "actions",
@@ -190,13 +208,35 @@ const KnowledgePage = () => {
       cell: ({ row }) => {
         const document = row.original;
         return (
-          <Button
-            onClick={() => handleDeleteDocument(document.id)}
-            variant="destructive"
-            size="sm"
+          <DropdownMenu
+            open={openDropdownId === document.id}
+            onOpenChange={(open) => {
+              if (open) {
+                setOpenDropdownId(document.id);
+              } else if (openDropdownId === document.id) {
+                setOpenDropdownId(null);
+              }
+            }}
           >
-            Delete
-          </Button>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>
+                <FolderInput className="mr-2 h-4 w-4" />
+                <span>Move</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleDeleteDocument(document.id)}
+              >
+                <Trash className="mr-2 h-4 w-4" />
+                <span>Delete</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         );
       },
     },
@@ -249,25 +289,6 @@ const KnowledgePage = () => {
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     />
                   </div>
-                  {/* <div>
-                    <label
-                      htmlFor="metadata"
-                      className="block text-sm font-medium text-gray-700"
-                    >
-                      Metadata
-                    </label>
-                    <textarea
-                      id="metadata"
-                      value={JSON.stringify(selected.metadata, null, 2)}
-                      onChange={(e) =>
-                        updateKnowledge({
-                          ...selected,
-                          metadata: JSON.parse(e.target.value),
-                        })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    />
-                  </div> */}
                   <div className="flex justify-end space-x-2">
                     <Button
                       onClick={() => handleDeleteDocument(selected.id)}

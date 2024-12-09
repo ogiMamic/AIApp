@@ -42,12 +42,13 @@ import { TreeItem } from "./interfaces/tree-item";
 import Tree from "./knowledges-tree";
 import SearchInput from "./SearchInput";
 
-let data = {
+export let data = {
   tree: [
     {
       id: "1",
       name: "Knowledges",
       children: [],
+      test: "test111",
     },
     {
       id: "5",
@@ -224,8 +225,19 @@ const ListKnowledges = ({
     });
   }, []);
 
-  const onCreateFolder = (parentId: string) => {
-    console.log("parentId", parentId);
+  const onCreateFolder = (parentId: string, folderName: string) => {
+    const newTree = [...data.tree];
+    const parent = findFolderById(newTree, parentId);
+
+    if (parent?.children) {
+      parent.children.push({
+        id: Math.random().toString(),
+        name: folderName,
+        children: [],
+      });
+    }
+
+    setItems(newTree);
   };
 
   const onMove = (folderId: string, itemId: string) => {
@@ -234,6 +246,21 @@ const ListKnowledges = ({
     const { success, updatedTree } = moveItem(items, itemId, folderId);
     setItems(updatedTree);
   };
+
+  function findFolderById(items: TreeItem[], id: string): TreeItem | null {
+    for (const item of items) {
+      if (item.id === id) {
+        return item;
+      }
+      if (item.children && item.children.length > 0) {
+        const found = findFolderById(item.children as TreeItem[], id);
+        if (found) {
+          return found;
+        }
+      }
+    }
+    return null;
+  }
 
   return (
     <div className="pt-6 pb-4 px-4 flex-col lg:col-span-3 bg-gray-50 h-full overflow-auto">

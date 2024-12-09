@@ -1,8 +1,8 @@
 import Link from "next/link";
 import React from "react";
 import { Button } from "../ui/button";
-import { SynapseKnowledge } from "@/lib/interfaces/SynapseAgent";
 import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
+import { SynapseKnowledge } from "@/lib/interfaces/SynapseKnowledge";
 type Props = {
   knowledge: SynapseKnowledge;
 };

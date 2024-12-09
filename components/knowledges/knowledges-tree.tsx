@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { ChevronRight, File, Folder, FolderInput, MoreVertical, Plus, TrashIcon } from "lucide-react";
+import { ChevronRight, File, Folder, FolderInput, MoreVertical, Plus, TrashIcon } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -40,11 +40,12 @@ import { useKnowledgesStore } from "@/store/knowledgesStore/useKnowledgesStore";
 import axios from "axios";
 import { TreeItem } from "./interfaces/tree-item";
 import { FolderSelectionDialog } from "./FolderSelectionDialog";
+import { setFips } from "crypto";
 
 type TreeItemProps = {
   item: TreeItem;
   data: any;
-  onCreateFolder: (parentId: string) => void;
+  onCreateFolder: (parentId: string, folderName: string) => void;
   onSelect: (folderId: string) => void;
   onMove: (folderId: string, itemId: string) => void;
 };
@@ -65,7 +66,13 @@ export default function Tree({
 
   const [itemToMove, setItemToMove] = useState<string | null>(null);
 
-  const hasChildren = item.children && item.children.length > 0;
+  const [treeItems, setTreeItems] = useState<TreeItem[]>(data.tree);
+
+  const hasChildren = item.children && item.children.length >= 0;
+
+useEffect(() => {
+  setTreeItems(data.tree);
+}, [data.tree]);
 
   const handleSelectFolder = (folderId: string) => {
     setSelectedFolderId(folderId);
@@ -115,7 +122,7 @@ export default function Tree({
                 }}
                 className="hover:bg-gray-100"
               >
-                <FolderInput size="16"  />
+                <FolderInput size="16" />
                 <span>Move</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="hover:bg-gray-100">
@@ -129,7 +136,7 @@ export default function Tree({
           isOpen={isDialogOpen}
           onClose={handleClose}
           onSelect={handleMove}
-          items={data.tree}
+          items={treeItems}
         />
       </>
     );
@@ -138,19 +145,84 @@ export default function Tree({
   return (
     <SidebarMenuItem>
       <Collapsible
-        className="group/collapsible [&[data-state=open]>div>button:first-child>svg.transition-transform:first-child]:rotate-90"
+        className="group/collapsible [&[data-state=open]>div>div>button:first-child>svg.transition-transform:first-child]:rotate-90"
         defaultOpen={item.name === "components" || item.name === "ui"}
       >
-        <div className="flex items-center">
-          <CollapsibleTrigger asChild className="w-auto p-2">
-            <SidebarMenuButton>
-              <ChevronRight className="transition-transform" />
-            </SidebarMenuButton>
-          </CollapsibleTrigger>
-          <Button variant="ghost" className="flex items-center gap-2 flex-1 justify-start px-2">
-            <Folder />
-            {item.name}
-          </Button>
+        <div className="flex items-center w-full">
+          <div className="flex flex-1 items-center min-w-0">
+            <CollapsibleTrigger asChild className="w-auto p-2">
+              <SidebarMenuButton>
+                <ChevronRight className="transition-transform" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2 flex-1 justify-start px-2"
+            >
+              <Folder />
+              {item.name}
+            </Button>
+          </div>
+          <Dialog
+            open={isCreateFolderDialogOpen}
+            onOpenChange={setIsCreateFolderDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="flex-shrink-0 ml-2 p-2"
+                onClick={() => {
+                  setParentFolderId(item.id);
+                  setIsCreateFolderDialogOpen(true)
+                } }
+              >
+                <Plus size="16" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Folder</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <label
+                  htmlFor="folder-name"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Folder Name
+                </label>
+                <input
+                  id="folder-name"
+                  type="text"
+                  placeholder="Enter folder name"
+                  className="w-full p-2 border border-gray-300 rounded mb-4"
+                  value={folderName}
+                  onChange={(e) => setFolderName(e.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCreateFolderDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (folderName.trim()) {
+                      onCreateFolder(item.id, folderName);
+                      setIsCreateFolderDialogOpen(false);
+                      toast.success(`Folder "${folderName}" created successfully!`);
+                      setFolderName("");
+                    } else {
+                      toast.error("Please enter a folder name.");
+                    }
+                  }}
+                >
+                  Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <CollapsibleContent>
@@ -171,3 +243,4 @@ export default function Tree({
     </SidebarMenuItem>
   );
 }
+
