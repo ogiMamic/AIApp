@@ -9,6 +9,7 @@ import {
   HelpCircle,
   Send,
   Paperclip,
+  FileText,
 } from "lucide-react";
 import { Heading } from "@/components/heading";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import { BotAvatar } from "@/components/bot-avatar";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { KnowledgeDialog } from "./knowledge-dialog";
 
 interface SynapseAgent {
   id: string;
@@ -83,6 +85,7 @@ export default function AgentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isKnowledgeDialogOpen, setIsKnowledgeDialogOpen] = useState(false);
 
   const [testQuestion, setTestQuestion] = useState("");
   const [messages, setMessages] = useState<IMessage[]>([]);
@@ -497,8 +500,8 @@ export default function AgentPage() {
                   />
                 </div>
                 <div className="flex space-x-4">
-                  <div className="flex-1">
-                    <Label htmlFor="knowledgeSelect">Knowledge Base</Label>
+                  {/* <div className="flex-1">
+                    <Label htmlFor="knowledgeSelect">Knowledge Basexxx</Label>
                     <Select
                       value={selectedKnowledge || undefined}
                       onValueChange={setSelectedKnowledge}
@@ -514,7 +517,33 @@ export default function AgentPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div> */}
+                  <div className="flex-1">
+                    <Label htmlFor="knowledgeSelect">Knowledge Base</Label>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={() => setIsKnowledgeDialogOpen(true)}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        {selectedKnowledge
+                          ? knowledges.find((k) => k.id === selectedKnowledge)
+                              ?.name
+                          : "Select a knowledge base"}
+                      </Button>
+                    </div>
                   </div>
+
+                  <KnowledgeDialog
+                    open={isKnowledgeDialogOpen}
+                    onOpenChange={setIsKnowledgeDialogOpen}
+                    onSave={(selectedItems) => {
+                      setSelectedKnowledge(selectedItems[0] || null);
+                    }}
+                    knowledges={knowledges}
+                    initialSelected={selectedKnowledge}
+                  />
                   <div className="flex-1">
                     <Label htmlFor="modelSelect">Model</Label>
                     <Select
@@ -699,8 +728,8 @@ export default function AgentPage() {
             <br />
             The process of creating an agent involves:
             <ol className="list-decimal list-inside mt-2">
-              <li>Defining the agent's name and description</li>
-              <li>Providing instructions for the agent's behavior</li>
+              <li>Defining the agent&apos;s name and description</li>
+              <li>Providing instructions for the agent&apos;s behavior</li>
               <li>Selecting a knowledge base</li>
               <li>Choosing an AI model</li>
               <li>Creating custom commands for the agent</li>

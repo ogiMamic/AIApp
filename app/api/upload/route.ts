@@ -1,164 +1,210 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import fs from "fs";
-import path from "path";
-import os from "os";
-import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { createClient } from "@supabase/supabase-js";
 import { getAuth } from "@clerk/nextjs/server";
+import { v4 as uuidv4 } from 'uuid';
+
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
+
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
 
 const MAX_CHUNK_SIZE = 1 * 1024 * 1024; // 1 MB
 const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000; // 2 seconds
+
+
+async function checkFileStatus(fileId: string): Promise<boolean> {
+  try {
+    const file = await openai.files.retrieve(fileId);
+    console.log(`File status for ${fileId}:`, file.status);
+    return file.status === 'processed';
+  } catch (error) {
+    console.error(`Error checking file status for ${fileId}:`, error);
+    return false;
+  }
+}
+
+
+async function waitForFileProcessing(fileId: string, maxRetries = 5): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    const isProcessed = await checkFileStatus(fileId);
+    if (isProcessed) return true;
+    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+  }
+  return false;
+}
+
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const uploadChunk = async (chunk: Buffer, retries = 0) => {
+    try {
+      const blob = new Blob([chunk]);
+      const chunkFile = new File([blob], `chunk_${uuidv4()}.txt`);  
+      return await openai.files.create({ file: chunkFile, purpose: "assistants" });
+    } catch (error) {
+      console.error(`Error uploading chunk (attempt ${retries + 1}):`, error);
+      if (retries < MAX_RETRIES) {
+        console.log(`Retrying upload chunk: Attempt ${retries + 1}`);
+        return await uploadChunk(chunk, retries + 1);
+      }
+      throw error;
+    }
+  };
+
+
   try {
     const { userId } = getAuth(req);
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+
     if (!req.body) {
       return NextResponse.json({ error: "No data provided" }, { status: 400 });
     }
 
-    const formData = await req.formData();
 
-    const file = formData.get("file") as File;
-    if (!file) {
-      console.log("nema fajla nikakvog");
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    const formData = await req.formData();  
+
+
+    const file = formData.get("file");
+    if (!file || !(file instanceof File)) {
+      return NextResponse.json({ error: "Invalid file provided" }, { status: 400 });
     }
+
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const totalSize = buffer.length;
     const chunks = Math.ceil(totalSize / MAX_CHUNK_SIZE);
 
+
     console.log(`File size: ${totalSize} bytes, Chunks: ${chunks}`);
 
-    // Create a temporary file with a valid extension
-    const tempFilePath = path.join(os.tmpdir(), `upload_${Date.now()}.txt`);
-    fs.writeFileSync(tempFilePath, buffer);
 
     const openAIFileIds = [];
     for (let i = 0; i < chunks; i++) {
       const start = i * MAX_CHUNK_SIZE;
       const end = Math.min(start + MAX_CHUNK_SIZE, totalSize);
 
-      let retries = 0;
-      while (retries < MAX_RETRIES) {
-        try {
-          console.log(`Uploading chunk ${i + 1}/${chunks}`);
-          const chunk = buffer.subarray(start, end);
-          const blob = new Blob([chunk]);
-          const chunkFile = new File([blob], `chunk_${i + 1}_${file.name}`, {
-            type: "application/octet-stream",
-          });
-          const openAIFile = await openai.files.create({
-            file: chunkFile,
-            purpose: "assistants",
-          });
-          openAIFileIds.push(openAIFile.id);
-          console.log(
-            `Uploaded chunk ${i + 1}/${chunks}, File ID: ${openAIFile.id}`
-          );
-          break; // Success, exit retry loop
-        } catch (error) {
-          console.error(`Error uploading chunk ${i + 1}/${chunks}:`, error);
-          retries++;
-          if (retries >= MAX_RETRIES) {
-            throw error; // Max retries reached, throw error
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1000 * retries)); // Exponential backoff
-        }
+
+      console.log(`Uploading chunk ${i + 1}/${chunks}`);
+      const chunk = buffer.subarray(start, end);
+      try {
+        const openAIFile = await uploadChunk(chunk);
+        openAIFileIds.push(openAIFile.id);
+        console.log(`Uploaded chunk ${i + 1}/${chunks}, File ID: ${openAIFile.id}`);
+      } catch (error) {
+        console.error(`Error uploading chunk ${i + 1}/${chunks}:`, error);
+        throw error;
       }
     }
 
-    // Clean up the temporary file
-    fs.unlinkSync(tempFilePath);
 
     console.log("All chunks uploaded successfully");
+    console.log("OpenAI File IDs:", openAIFileIds);
 
-    // Create vector store
-    let vectorStore;
-    try {
-      vectorStore = await openai.beta.vectorStores.create({
-        name: `VectorStore_${file.name}`,
-        file_ids: openAIFileIds,
-      });
-      console.log("Vector store created:", vectorStore.id);
-    } catch (error) {
-      console.error("Error creating vector store:", error);
-      if (error instanceof OpenAI.APIError) {
-        console.error(
-          "OpenAI API Error:",
-          error.status,
-          error.message,
-          error.code
-        );
-      }
-      throw error;
+
+    // Čekanje da svi fajlovi budu obrađeni
+    const processingResults = await Promise.all(openAIFileIds.map(fileId => waitForFileProcessing(fileId)));
+    
+    if (processingResults.every(result => result)) {
+      console.log("All files have been processed successfully");
+    } else {
+      console.warn("Some files were not processed in time:", openAIFileIds);
     }
+
 
     const embeddings = new OpenAIEmbeddings({
       openAIApiKey: process.env.OPENAI_API_KEY,
     });
 
-    const fileContent = buffer.toString("utf-8");
+
+    const fileContent = buffer.toString('utf-8');
     const embeddingVector = await embeddings.embedQuery(fileContent);
+    console.log("Embedding Vector length:", embeddingVector.length);
+
 
     // Save file information to database
     try {
+      const fileName = file.name;
+      const fileSize = file.size;
+      const formattedSize = formatFileSize(fileSize);
+      const currentTimestamp = new Date().toISOString();
+    
+      console.log("Supabase insert data:", {
+        content: fileContent.substring(0, 100) + "...", // Prikazuje prvih 100 karaktera
+        metadata: JSON.stringify({
+          name: fileName,
+          openAIFileIds: openAIFileIds,
+          size: totalSize,
+        }),
+        embedding: `[${embeddingVector.slice(0, 5).join(", ")}...]`, // Prikazuje prvih 5 elemenata
+        userId: userId,
+        Name: fileName,
+        Size_in_kilobytes: formattedSize,
+        Last_edited: currentTimestamp
+      });
+
+
       const { data: savedFile, error } = await supabase
-        .from("test_tabela")
+        .from('test_tabela')
         .insert({
           content: fileContent,
           metadata: JSON.stringify({
-            name: file.name,
+            name: fileName,
             openAIFileIds: openAIFileIds,
-            vectorStoreId: vectorStore.id,
             size: totalSize,
           }),
           embedding: embeddingVector,
           userId: userId,
+          Name: fileName,
+          Size_in_kilobytes: formattedSize,
+          Last_edited: currentTimestamp
         })
         .select()
         .single();
 
+
       if (error) {
-        console.error("Supabase insert error:", error);
-        throw error;
+        console.error("Detaljna Supabase greška:", error);
+        return NextResponse.json(
+          {
+            success: false,
+            openAIFileIds: openAIFileIds,
+            error: `File uploaded to OpenAI but not saved to database. Error: ${error.message}`,
+            details: error
+          },
+          { status: 207 } // Partial Content
+        );
       }
 
+
       if (!savedFile) {
+        console.error("Fajl nije sačuvan u bazi, ali nije prijavljena greška.");
         throw new Error("File was not saved to the database");
       }
+
 
       return NextResponse.json(
         {
           success: true,
           fileId: savedFile.id,
           openAIFileIds: openAIFileIds,
-          vectorStoreId: vectorStore.id,
         },
         { status: 200 }
       );
     } catch (dbError) {
-      console.error("Database error:", dbError);
-      // If database operation fails, we should clean up the created vector store
-      try {
-        await openai.beta.vectorStores.del(vectorStore.id);
-      } catch (cleanupError) {
-        console.error("Error cleaning up vector store:", cleanupError);
-      }
+      console.error("Detaljna greška baze podataka:", dbError);
       throw dbError;
     }
   } catch (error) {
@@ -176,3 +222,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 }
+
+
+function formatFileSize(bytes: number): string {
+  return (bytes / 1024).toFixed(2);
+}
+
